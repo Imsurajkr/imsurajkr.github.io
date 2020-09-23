@@ -61,6 +61,7 @@ a.navbar-item.is-active {
         content: "";
     }
 }
+
 .title {
     margin: auto 0.75rem!important;
 }
@@ -74,7 +75,12 @@ a.navbar-item.is-active {
         margin: auto;
 
         img {
-            border: 0.25rem dotted black;
+            border: 0.25rem dotted white;
+            transition: all 0.25s ease;
+            &:hover{
+                transition: all 0.25s ease;
+                transform: scale(1.05);
+            }
         }
     }
 
