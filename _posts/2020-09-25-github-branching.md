@@ -4,9 +4,9 @@ layout: post
 post-image: "https://cdn.pixabay.com/photo/2020/06/12/14/07/code-5290465_960_720.jpg"
 description: A sample demo on github banching techniques 
 tags:
-- sample
-- post
-- test
+- github
+- branching
+- practices
 ---
 # Branching Technique
 
