@@ -1,7 +1,7 @@
 ---
 title: Why should we use vim ??
 layout: post
-post-image: "https://cdn.pixabay.com/photo/2013/07/13/13/41/bash-161382_960_720.png"
+post-image: "https://cdn.pixabay.com/photo/2012/04/11/11/39/text-editor-27620_960_720.png"
 description: What a simple editor like vim can do hmmmmm??🤔
 tags:
 - vim
@@ -24,6 +24,8 @@ We will cover some topics to make our vim more interactive and cool.<br />
 2. Plugin Manager
 3. Plugins 
 4. remaps
+
+![Do_love](/assets/images/vim_editor/Do_Love.png)
 
 # Steps 
 
@@ -55,6 +57,8 @@ highlight ColorColumn ctermbg=0 guibg=lightgrey
 :source % 
 :wq!
 ```
+![beginning](/assets/images/vim_editor/beginning.png)
+
 ### syntax on 
 
 Syntax on just gives you some basic high-lighting this works with a lot of language. But you may have to add some extension to work with every language 
@@ -130,61 +134,127 @@ Now we are done with the sets. Its improved the vim editor But we have to uncove
 
 Well well we need some installer and plugin manager to do some cool stuff for us.
 
-[link](https://github.com/junegunn/vim-plug) 
+
 
 ```bash 
 
 curl -fLo ~/.vim/autoload/plug.vim --create-dirs \
     https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
+
 # Open the ~/.vimrc Add the following lines.
 # I have listed all the plugins I tried.
 
 call plug#begin('~/.vim/plugged')
-
-Plug 'morhetz/gruvbox'
-Plug 'jremmen/vim-repgrep'
-Plug 'tpope/vim-fugitive'
-Plug 'vim-utils/vim-man'
-Plug 'lyuts/vim-rtags'
-Plug 'ctrlpvim/ctrlp.vim
-Plug 'oblitum/youcompleteme'
-plug 'mbbill/undotree'
-
+Plug 'Shougo/deoplete.nvim', { 'do': ':UpdateRemotePlugins' }
+Plug 'scrooloose/nerdtree'
+Plug 'scrooloose/nerdcommenter'
+Plug 'altercation/vim-colors-solarized'
+Plug 'itchyny/lightline.vim'
+" call PlugInstall to install new plugins
 call plug#end()
-colorscheme gruvbox 
+
+" basics
+filetype plugin indent on
+syntax on
+"set nu
+"set relativenumber
+set incsearch
+set ignorecase
+set smartcase
+set nohlsearch
+set tabstop=2
+set softtabstop=0
+set shiftwidth=4
+set expandtab
+set nobackup
+set noswapfile
+set nowrap
+set cursorcolumn
+set cursorline
+
+let mapleader = "\<Space>"
+" navigate split screens easily
+nmap <silent> <c-k> :wincmd k<CR>
+nmap <silent> <c-j> :wincmd j<CR>
+nmap <silent> <c-h> :wincmd h<CR>
+nmap <silent> <c-l> :wincmd l<CR>
+
+nmap <C-_>   <Plug>NERDCommenterToggle
+nmap <C-_>   <Plug>NERDCommenterToggle<CR>gv
+
+" solarized
+syntax enable
 set background=dark
 
-if executable('rg')
-    let g:rg_derive_root='true'                                                 
-endif
+" deoplete
+let g:deoplete#enable_at_startup = 1
+" use tab to forward cycle
+inoremap <silent><expr><tab> pumvisible() ? "\<c-n>" : "\<tab>"
+" use tab to backward cycle
+inoremap <silent><expr><s-tab> pumvisible() ? "\<c-p>" : "\<s-tab>"
+" Close the documentation window when completion is done
+autocmd InsertLeave,CompleteDone * if pumvisible() == 0 | pclose | endif
 
-let g:ctrlp_user_command = ['.git/', 'git --git-dir=%s/.git ls-files -oc --exclude-standard']
-let mapleader = " " 
-let g:netrw_browse_split=2
-let g:netrw_banner = 0
-let g:newtrw_winsize = 25
-let g:ctrlp_use_caching = 0
+"NERDTree
+" How can I close vim if the only window left open is a NERDTree?
+autocmd bufenter * if (winnr("$") == 1 && exists("b:NERDTree") && b:NERDTree.isTabTree()) | q | endif
+" toggle NERDTree
+map <C-n> :NERDTreeToggle<CR>
+let g:NERDTreeChDirMode=2
+let g:NERDTreeIgnore=['\.rbc$', '\~$', '\.pyc$', '\.db$', '\.sqlite$', '__pycache__', 'node_modules']
+let g:NERDTreeSortOrder=['^__\.py$', '\/$', '*', '\.swp$', '\.bak$', '\~$']
+let g:NERDTreeShowBookmarks=1
+let g:nerdtree_tabs_focus_on_files=1
+let g:NERDTreeMapOpenInTabSilent = '<RightMouse>'
 
-nnoremap <leader>h :wincmd h<CR>
-nnoremap <leader>j :wincmd j<CR>
-nnoremap <leader>k :wincmd k<CR>
-nnoremap <leader>l :wincmd l<CR>
-nnoremap <leader>u :UndotreeShow<CR>
-nnoremap <leader>pv :wincmd v<bar> :Ex <bar> :vertical resize 30<CR>
-nnoremap <Leader>ps :Rg<SPACE>
-nnoremap <silent> <Leader>+ :vertical resize +5<CR>
-nnoremap <silent> <Leader>- :vertical resize -5<CR>
+if has('persistent_undo')        "check if your vim version supports it
+    set undofile                 "turn on the feature  
+    set undodir=$HOME/.vim/undo  "directory where the undo files will be stored
+endif 
 
-nnoremap <silent> <Leader>gd :YcmCompleter GoTo<CR>
-nnoremap <silent> <Leader>gf :YcmCompleter FixIt<CR>
+:source %
+:PlugInstall
 
-vim -c 'PlugInstall' # In case if source gives some error 
-
-# For Debian users I will update the methods soon for Mac and Windows
-cd ~/.vim/plugged/youcompleteme
-sudo apt install cmake
+vim -c 'PlugInstall' 
+# In case if source gives some error 
 ```
 
+I know we can do a lot with vim . There's still a lot to learn but as far I have learned I have shared my vimrc files and some
+Intresting tips that you can also apply for vim configurations.
+
+# Let's Start 
+
+```bash 
+Plug 'Shougo/deoplete.nvim', { 'do': ':UpdateRemotePlugins' }
+```
+![deoplete](/assets/images/vim_editor/deoplete.png)
+
+## Deoplete is for auto-completion in vim.
+
+```bash 
+Plug 'scrooloose/nerdtree'
+```
+![nerdTree](/assets/images/vim_editor/NerdTree.png)
+
+## nerdtree is used for accessing multiple directories in Vim editor
+
+```bash 
+Plug 'scrooloose/nerdcommenter'
+```
+## Scrooloose/nerdcommenter to comment all lines with ctrl + / .
+![linesCommenting](/assets/images/vim_editor/lines_commenting.png)
+
+```bash 
+Plug 'altercation/vim-colors-solarized'
+```
+## All the vibrant colours you are seeing in my vim
+![nerdTree](/assets/images/vim_editor/Myvimrc.png)
+
+```bash 
+Plug 'itchyny/lightline.vim'
+```
+## the mode line which we see below
+![lines](/assets/images/vim_editor/lines.png)
 
 
-
+# I will update on how to use these plugin and leader keys how to map in next blog 
