@@ -2,7 +2,7 @@
 title: Capistrano 
 layout: post
 post-image: "https://opengraph.githubassets.com/2e94ce8e626ce1bbff705df44719eb54ad0ae43ec2747cf9b3e7a86d8a0cf3d6/capistrano/capistrano"
-description: Deploy apps using Capistrano🤔
+description: Deployment using Capistrano🤔
 tags:
 - rails
 - ruby
