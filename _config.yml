@@ -7,13 +7,13 @@ url: ''
 baseurl: 
 
 # Title of the Site
-title: Documented_Nerd
+title: secforge
 # Description of the Site
-description: Passionate DevOps Engineer With Imagination
+description: Think of SecForge as your one-stop shop for everything security-related in the devsecops realm. It's an immersive platform teeming with interactive challenges, hands-on labs, and real-world scenarios that equip you with the practical skills and knowledge to defend against evolving threats.
 # URL of Image of the Site
 site-image: /assets/images/logo.jpg
 # Keywords of the Site
-site-keywords: suraj, surajkumar, imsurajkr, documented_nerd, Documented_Nerd
+site-keywords: suraj, surajkumar, imsurajkr, secforge, Documented_Nerd, security
 # URL for the Image of custom Favicon
 favicon-url: 
 
@@ -41,11 +41,11 @@ google-analytics: UA-178929388-1
 disqus-shortname: imsurajkr-github-io
 
 # Name of the Author
-author-name: Documented_Nerd
+author-name: Suraj Kumar
 # URL for the Image of the Author
 author-image: /assets/images/author.jpg
 # 60 Words About the Author
-author-about: Bonjour A techie this side with managing some servers. I love to Learn and Travel. When i am not working I read about pyschology and Fitness.I believe in shareing whatever i learned. 
+author-about: Passionate and experienced DevSecOps Engineer with over 4 years of industry experience, proficient in securing cloud environments across AWS, Azure, and GCP. Proven ability to implement security best practices, build CI/CD pipelines, and leverage Kubernetes for containerized deployments.
 # URL to the Author's Profile (i.e., Github, Twitter, Stackoverflow, etc)
 author-url: https://github.com/imsurajkr
 
