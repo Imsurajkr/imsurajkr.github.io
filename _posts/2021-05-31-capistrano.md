@@ -7,6 +7,7 @@ tags:
 - rails
 - ruby
 - Capistrano 
+- secforge
 ---
 
 # What is capistrano 
