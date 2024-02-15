@@ -1,7 +1,7 @@
 ---
 layout: post
 post-image: "https://cdn.pixabay.com/photo/2015/08/29/20/21/safe-913452_960_720.jpg"
-description: The "System Monitoring Mastery" guide is a comprehensive resource designed to help users effectively monitor and manage their system's performance and health using popular tools like bashtop, htop, and top. It begins with an introduction to ensure that necessary tools are installed and then delves into detailed usage instructions for each tool.
+description: The "System Monitoring Mastery" guide is a comprehensive resource designed to help users effectively monitor and manage their system's performance and health.
 tags:
 - secforge 
 - security
