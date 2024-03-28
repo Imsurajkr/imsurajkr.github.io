@@ -45,7 +45,7 @@ author-name: Suraj Kumar
 # URL for the Image of the Author
 author-image: /assets/images/author.jpg
 # 60 Words About the Author
-author-about: Passionate and experienced DevSecOps Engineer with over 4 years of industry experience, proficient in securing cloud environments across AWS, Azure, and GCP. Proven ability to implement security best practices, build CI/CD pipelines, and leverage Kubernetes for containerized deployments.
+author-about: Passionate and experienced DevSecOps Engineer , proficient in securing cloud environments across AWS, Azure, and GCP. Proven ability to implement security best practices, build CI/CD pipelines, and leverage Kubernetes for containerized deployments.
 # URL to the Author's Profile (i.e., Github, Twitter, Stackoverflow, etc)
 author-url: https://github.com/imsurajkr
 
