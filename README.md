@@ -1,9 +1,9 @@
-# imsurajkr.github.io
+# surajkr.dev
 
 Personal site, resume and browser-based DevOps tools for **Suraj Kumar** — Senior Platform &
 DevOps Engineer.
 
-**Live:** <https://imsurajkr.github.io>
+**Live:** <https://surajkr.dev> (also at <https://imsurajkr.github.io>)
 
 Built with [Astro](https://astro.build), deployed to GitHub Pages by GitHub Actions.
 

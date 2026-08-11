@@ -3,11 +3,11 @@ import { defineConfig } from 'astro/config';
 import sitemap from '@astrojs/sitemap';
 import { remarkReadingTime } from './src/plugins/remark-reading-time.mjs';
 
-export const SITE = 'https://imsurajkr.github.io';
+export const SITE = 'https://surajkr.dev';
 
 export default defineConfig({
   site: SITE,
-  // User site (imsurajkr.github.io) serves from the domain root.
+  // Custom apex domain (surajkr.dev) serves from the root.
   base: '/',
   trailingSlash: 'ignore',
   integrations: [

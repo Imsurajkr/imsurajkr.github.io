@@ -1,5 +1,5 @@
 export const site = {
-  url: 'https://imsurajkr.github.io',
+  url: 'https://surajkr.dev',
   title: 'Suraj Kumar — Senior Platform & DevOps Engineer',
   shortTitle: 'Suraj Kumar',
   tagline: 'Senior Platform & DevOps Engineer',
