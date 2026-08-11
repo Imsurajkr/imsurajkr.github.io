@@ -1,0 +1,48 @@
+---
+/** Reveals [data-reveal] elements on first scroll into view, staggered by
+ *  their order within a shared parent. One observer for the whole page. */
+---
+
+<script>
+  const items = document.querySelectorAll<HTMLElement>('[data-reveal]');
+
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  if (reduced || !('IntersectionObserver' in window)) {
+    items.forEach((el) => el.classList.add('is-revealed'));
+  } else {
+    // Stagger siblings so a group resolves as one composed movement.
+    const seen = new Map<Element, number>();
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue;
+
+          const el = entry.target as HTMLElement;
+          const parent = el.parentElement ?? document.body;
+
+          if (!el.style.getPropertyValue('--reveal-delay')) {
+            const n = seen.get(parent) ?? 0;
+            seen.set(parent, n + 1);
+            el.style.setProperty('--reveal-delay', `${Math.min(n * 45, 270)}ms`);
+          }
+
+          el.classList.add('is-revealed');
+          observer.unobserve(el);
+        }
+      },
+      { rootMargin: '0px 0px -8% 0px', threshold: 0.05 }
+    );
+
+    items.forEach((el) => observer.observe(el));
+
+    // Anything already in view on load should not wait for a scroll event.
+    requestAnimationFrame(() => {
+      items.forEach((el) => {
+        const rect = el.getBoundingClientRect();
+        if (rect.top < window.innerHeight) el.classList.add('is-revealed');
+      });
+    });
+  }
+</script>

@@ -1,0 +1,184 @@
+---
+import BaseLayout from './BaseLayout.astro';
+import { site } from '../data/site';
+import { tools, toolBySlug } from '../data/tools';
+import '../styles/tools.css';
+
+export interface Props {
+  slug: string;
+}
+
+const { slug } = Astro.props;
+const tool = toolBySlug(slug);
+
+if (!tool) {
+  throw new Error(`ToolLayout: unknown tool slug "${slug}" — add it to src/data/tools.ts`);
+}
+
+const url = `${site.url}/tools/${tool.slug}`;
+const related = tools.filter((t) => t.slug !== tool.slug).slice(0, 3);
+
+const jsonLd = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'WebApplication',
+    name: tool.name,
+    url,
+    description: tool.seo,
+    applicationCategory: 'DeveloperApplication',
+    operatingSystem: 'Any (web browser)',
+    browserRequirements: 'Requires JavaScript',
+    offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+    author: { '@type': 'Person', name: site.author.name, url: site.url },
+    keywords: tool.keywords.join(', '),
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Home', item: site.url },
+      { '@type': 'ListItem', position: 2, name: 'Tools', item: `${site.url}/tools` },
+      { '@type': 'ListItem', position: 3, name: tool.name, item: url },
+    ],
+  },
+];
+---
+
+<BaseLayout title={tool.name} description={tool.seo} tags={tool.keywords} jsonLd={jsonLd}>
+  <section class="tool-header">
+    <div class="wrap">
+      <nav class="crumbs" aria-label="Breadcrumb">
+        <a href="/">Home</a>
+        <span aria-hidden="true">/</span>
+        <a href="/tools">Tools</a>
+      </nav>
+
+      <p class="mono-label">{tool.category}</p>
+      <h1 class="tool-title">{tool.name}</h1>
+      <p class="lead prose tool-lead">{tool.description}</p>
+    </div>
+  </section>
+
+  <section class="section tool-body">
+    <div class="wrap">
+      <slot />
+
+      <p class="tool-privacy">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+        </svg>
+        Runs entirely in your browser — nothing you type here is uploaded, logged or stored.
+        <a href="/privacy">Privacy policy</a>
+      </p>
+    </div>
+  </section>
+
+  <section class="section related">
+    <div class="wrap">
+      <div class="related__head">
+        <h2 class="related__title">More tools</h2>
+        <a class="related__all" href="/tools">View all →</a>
+      </div>
+      <div class="related__grid">
+        {
+          related.map((r) => (
+            <a class="panel row-hover related__card" href={`/tools/${r.slug}`}>
+              <span class="chip">{r.category}</span>
+              <h3 class="related__name">{r.name}</h3>
+              <p class="muted related__desc">{r.tagline}</p>
+            </a>
+          ))
+        }
+      </div>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .tool-header {
+    padding-block: clamp(2rem, 5vw, 3.25rem) clamp(1.25rem, 3vw, 2rem);
+    background: var(--bg-1);
+    border-bottom: 1px solid var(--line);
+  }
+
+  .crumbs {
+    display: flex;
+    gap: var(--s-2);
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    color: var(--fg-4);
+    margin-bottom: var(--s-4);
+  }
+
+  .crumbs a {
+    color: var(--fg-3);
+    text-decoration: none;
+  }
+
+  .crumbs a:hover {
+    color: var(--signal);
+  }
+
+  .tool-title {
+    font-size: var(--step-3);
+    letter-spacing: -0.03em;
+    margin-top: var(--s-2);
+  }
+
+  .tool-lead {
+    margin-top: var(--s-3);
+    font-size: var(--step-0);
+    line-height: 1.6;
+  }
+
+  .tool-body {
+    padding-block: clamp(1.75rem, 4vw, 2.75rem);
+  }
+
+  .related {
+    border-top: 1px solid var(--line);
+    padding-block: clamp(2rem, 5vw, 3rem);
+  }
+
+  .related__head {
+    display: flex;
+    align-items: baseline;
+    gap: var(--s-4);
+    margin-bottom: var(--s-4);
+  }
+
+  .related__title {
+    font-size: var(--step-1);
+  }
+
+  .related__all {
+    font-size: var(--step--1);
+    text-decoration: none;
+    margin-left: auto;
+  }
+
+  .related__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+    gap: var(--s-3);
+  }
+
+  .related__card {
+    text-decoration: none;
+    color: inherit;
+  }
+
+  .related__name {
+    font-size: var(--step-0);
+    margin-top: var(--s-2);
+  }
+
+  .related__card:hover .related__name {
+    color: var(--signal);
+  }
+
+  .related__desc {
+    font-size: var(--step--1);
+    margin-top: var(--s-1);
+  }
+</style>

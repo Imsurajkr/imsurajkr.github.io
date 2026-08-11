@@ -1,0 +1,26 @@
+---
+import BaseHead from '../components/BaseHead.astro';
+import type { Props as HeadProps } from '../components/BaseHead.astro';
+import Nav from '../components/Nav.astro';
+import Footer from '../components/Footer.astro';
+import RevealScript from '../components/RevealScript.astro';
+import '../styles/global.css';
+
+export type Props = HeadProps;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <BaseHead {...Astro.props} />
+  </head>
+  <body>
+    <a href="#main" class="skip-link">Skip to content</a>
+    <Nav />
+    <main id="main">
+      <slot />
+    </main>
+    <Footer />
+    <RevealScript />
+  </body>
+</html>

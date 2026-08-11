@@ -1,0 +1,198 @@
+---
+import { site } from '../data/site';
+import { profile } from '../data/resume';
+import TerminalHero from './TerminalHero.astro';
+---
+
+<section class="hero">
+  <!-- Ambient mesh: two low-opacity glows over the blueprint grid. -->
+  <div class="hero__bg" aria-hidden="true">
+    <span class="glow glow--a"></span>
+    <span class="glow glow--b"></span>
+    <span class="hero__grid"></span>
+  </div>
+
+  <div class="wrap hero__inner">
+    <div class="hero__copy">
+      <p class="hero__status" data-reveal>
+        <span class="status-dot" aria-hidden="true"></span>
+        <span class="mono-label">Open to senior platform &amp; SRE roles</span>
+      </p>
+
+      <h1 class="hero__name" data-reveal style="--reveal-delay: 50ms">Suraj Kumar</h1>
+
+      <p class="hero__role" data-reveal style="--reveal-delay: 100ms">{profile.headline}</p>
+
+      <p class="hero__pitch" data-reveal style="--reveal-delay: 150ms">
+        I build the infrastructure other engineers ship on — hardened Kubernetes platforms,
+        multi-cloud Terraform, and delivery pipelines that hold up under audit. Currently keeping
+        banking workloads online at <strong>Kotak Mahindra Bank</strong>.
+      </p>
+
+      <ul class="hero__specs" data-reveal style="--reveal-delay: 200ms">
+        <li><span class="dim">Clouds</span> AWS · GCP · Azure</li>
+        <li><span class="dim">Orchestration</span> EKS · AKS · GKE · Istio</li>
+        <li><span class="dim">IaC</span> Terraform · Puppet</li>
+        <li><span class="dim">Languages</span> Python · Bash · Go</li>
+      </ul>
+
+      <div class="hero__actions no-print" data-reveal style="--reveal-delay: 250ms">
+        <a class="btn btn--primary" href="#work">Selected work</a>
+        <a class="btn" href="/tools">Try my DevOps tools</a>
+        <a class="btn" href={site.social.email}>Get in touch</a>
+      </div>
+    </div>
+
+    <div class="hero__figure" data-reveal style="--reveal-delay: 180ms">
+      <TerminalHero />
+    </div>
+  </div>
+</section>
+
+<style>
+  .hero {
+    position: relative;
+    padding-block: clamp(2.5rem, 6vw, 5rem) clamp(2rem, 4vw, 3.5rem);
+    border-bottom: 1px solid var(--line);
+    overflow: hidden;
+  }
+
+  .hero__bg {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+
+  .glow {
+    position: absolute;
+    width: 34rem;
+    height: 34rem;
+    border-radius: 50%;
+    filter: blur(110px);
+    opacity: 0.5;
+  }
+
+  /* Emerald = health/status, azure = signal/interaction. The glow uses the
+     same semantic pair as the rest of the system rather than random colour. */
+  .glow--a {
+    top: -14rem;
+    left: -10rem;
+    background: color-mix(in srgb, var(--health) 26%, transparent);
+  }
+
+  .glow--b {
+    bottom: -18rem;
+    right: -10rem;
+    background: color-mix(in srgb, var(--signal) 26%, transparent);
+  }
+
+  .hero__grid {
+    position: absolute;
+    inset: 0;
+    background-image: linear-gradient(var(--grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size: 52px 52px;
+    mask-image: radial-gradient(ellipse 80% 70% at 40% 10%, #000 20%, transparent 78%);
+    -webkit-mask-image: radial-gradient(ellipse 80% 70% at 40% 10%, #000 20%, transparent 78%);
+  }
+
+  /* Light theme: the glows would wash the page out, so pull them right back. */
+  :global(html[data-theme='light']) .glow {
+    opacity: 0.32;
+  }
+
+  @media (prefers-color-scheme: light) {
+    :global(html:not([data-theme='dark'])) .glow {
+      opacity: 0.32;
+    }
+  }
+
+  .hero__inner {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
+    gap: clamp(2rem, 4vw, 3.5rem);
+    align-items: center;
+  }
+
+  .hero__status {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--s-2);
+    padding: 0.3rem 0.7rem 0.3rem 0.55rem;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--bg-1) 70%, transparent);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+
+  .hero__name {
+    font-size: var(--step-5);
+    font-weight: 600;
+    letter-spacing: -0.035em;
+    margin-top: var(--s-4);
+  }
+
+  .hero__role {
+    font-size: var(--step-2);
+    font-weight: 500;
+    color: var(--signal);
+    letter-spacing: -0.02em;
+    margin-top: var(--s-1);
+  }
+
+  .hero__pitch {
+    max-width: 46ch;
+    margin-top: var(--s-4);
+    font-size: var(--step-1);
+    line-height: 1.55;
+    color: var(--fg-2);
+  }
+
+  .hero__pitch strong {
+    color: var(--fg);
+    font-weight: 550;
+  }
+
+  .hero__specs {
+    list-style: none;
+    margin: var(--s-5) 0 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
+    border-top: 1px solid var(--line);
+    font-family: var(--font-mono);
+    font-size: var(--step--2);
+  }
+
+  .hero__specs li {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    padding: var(--s-3) 0;
+    border-bottom: 1px solid var(--line);
+    color: var(--fg-2);
+  }
+
+  .hero__specs .dim {
+    font-size: 0.66rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--fg-4);
+  }
+
+  .hero__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-2);
+    margin-top: var(--s-5);
+  }
+
+  @media (max-width: 64rem) {
+    .hero__inner {
+      grid-template-columns: minmax(0, 1fr);
+      gap: var(--s-6);
+    }
+  }
+</style>

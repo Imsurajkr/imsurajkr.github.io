@@ -1,0 +1,100 @@
+---
+---
+
+<button
+  id="theme-toggle"
+  class="theme-toggle no-print"
+  type="button"
+  aria-label="Switch colour theme"
+  title="Switch colour theme"
+>
+  <svg class="icon icon--sun" viewBox="0 0 24 24" aria-hidden="true">
+    <circle cx="12" cy="12" r="4"></circle>
+    <path
+      d="M12 2.5v2m0 15v2M4.6 4.6l1.4 1.4m12 12 1.4 1.4M2.5 12h2m15 0h2M4.6 19.4 6 18m12-12 1.4-1.4"
+    ></path>
+  </svg>
+  <svg class="icon icon--moon" viewBox="0 0 24 24" aria-hidden="true">
+    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+  </svg>
+</button>
+
+<style>
+  .theme-toggle {
+    display: grid;
+    place-items: center;
+    width: 2rem;
+    height: 2rem;
+    padding: 0;
+    border-radius: var(--r-sm);
+    border: 1px solid var(--line);
+    background: var(--bg-1);
+    color: var(--fg-3);
+    cursor: pointer;
+    transition: color 0.16s var(--ease), border-color 0.16s var(--ease);
+  }
+
+  .theme-toggle:hover {
+    color: var(--signal);
+    border-color: var(--signal);
+  }
+
+  .icon {
+    grid-area: 1 / 1;
+    width: 0.95rem;
+    height: 0.95rem;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  /* Show the icon for the theme you would switch *to*. */
+  .icon--sun {
+    display: none;
+  }
+
+  :global(html[data-theme='dark']) .icon--sun {
+    display: block;
+  }
+  :global(html[data-theme='dark']) .icon--moon {
+    display: none;
+  }
+  :global(html[data-theme='light']) .icon--sun {
+    display: none;
+  }
+  :global(html[data-theme='light']) .icon--moon {
+    display: block;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :global(html:not([data-theme])) .icon--sun {
+      display: block;
+    }
+    :global(html:not([data-theme])) .icon--moon {
+      display: none;
+    }
+  }
+</style>
+
+<script>
+  const root = document.documentElement;
+  const btn = document.getElementById('theme-toggle');
+
+  function currentTheme(): 'light' | 'dark' {
+    const explicit = root.getAttribute('data-theme');
+    if (explicit === 'light' || explicit === 'dark') return explicit;
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  }
+
+  btn?.addEventListener('click', () => {
+    const next = currentTheme() === 'dark' ? 'light' : 'dark';
+    root.setAttribute('data-theme', next);
+    try {
+      localStorage.setItem('theme', next);
+    } catch {
+      /* storage blocked — theme still applies for this page view */
+    }
+  });
+</script>

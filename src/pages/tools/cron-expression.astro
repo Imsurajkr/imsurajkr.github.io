@@ -1,0 +1,507 @@
+---
+import ToolLayout from '../../layouts/ToolLayout.astro';
+
+const examples = [
+  { expr: '*/5 * * * *', label: 'Every 5 minutes' },
+  { expr: '0 2 * * *', label: 'Nightly at 02:00' },
+  { expr: '0 9 * * 1-5', label: 'Weekday mornings' },
+  { expr: '30 3 1 * *', label: 'Monthly on the 1st' },
+  { expr: '0 0 * * 0', label: 'Weekly on Sunday' },
+  { expr: '@daily', label: 'Shorthand' },
+];
+---
+
+<ToolLayout slug="cron-expression">
+  <div class="tool-panel">
+    <label class="tool-label" for="cron">Cron expression</label>
+    <input
+      id="cron"
+      class="tool-input tool-input--mono cron-input"
+      type="text"
+      value="*/15 9-17 * * 1-5"
+      spellcheck="false"
+      autocomplete="off"
+      placeholder="*/5 * * * *"
+    />
+
+    <div class="fields" aria-hidden="true">
+      <span>minute</span><span>hour</span><span>day of month</span><span>month</span><span>day of week</span>
+    </div>
+
+    <p id="status" class="tool-status" role="status"></p>
+
+    <div class="examples">
+      <span class="tool-label">Try:</span>
+      {
+        examples.map((ex) => (
+          <button type="button" class="btn btn--sm example" data-expr={ex.expr} title={ex.label}>
+            <code>{ex.expr}</code>
+          </button>
+        ))
+      }
+    </div>
+  </div>
+
+  <div id="results" hidden>
+    <div class="tool-panel summary-panel">
+      <p class="tool-panel__title">In plain English</p>
+      <p id="description" class="description"></p>
+    </div>
+
+    <div class="tool-grid">
+      <div class="tool-panel">
+        <p class="tool-panel__title">Field breakdown</p>
+        <dl class="kv" id="breakdown"></dl>
+      </div>
+
+      <div class="tool-panel">
+        <div class="tool-head-row">
+          <p class="tool-panel__title">Next 10 runs</p>
+          <span class="dim tz" id="tz"></span>
+        </div>
+        <ol class="runs" id="runs"></ol>
+      </div>
+    </div>
+  </div>
+</ToolLayout>
+
+<style>
+  .cron-input {
+    font-size: 1.15rem;
+    letter-spacing: 0.06em;
+    padding: 0.7rem 0.85rem;
+  }
+
+  .fields {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 0.5rem;
+    margin-top: 0.4rem;
+    font-family: var(--font-mono);
+    font-size: 0.66rem;
+    color: var(--fg-3);
+    text-align: center;
+  }
+
+  .examples {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem;
+    margin-top: 1rem;
+  }
+
+  .examples code {
+    background: none;
+    border: 0;
+    padding: 0;
+  }
+
+  .summary-panel {
+    border-color: color-mix(in srgb, var(--signal) 35%, var(--line));
+  }
+
+  .description {
+    font-size: var(--step-1);
+    line-height: 1.45;
+    color: var(--fg);
+  }
+
+  .tz {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+  }
+
+  .runs {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+  }
+
+  .runs li {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.45rem 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .runs li:last-child {
+    border-bottom: 0;
+  }
+
+  .runs .rel {
+    color: var(--fg-3);
+    white-space: nowrap;
+  }
+</style>
+
+<script>
+  const MONTHS = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December',
+  ];
+  const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+  const MONTH_ALIASES: Record<string, number> = {
+    jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6,
+    jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12,
+  };
+  const DOW_ALIASES: Record<string, number> = {
+    sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6,
+  };
+
+  const SHORTHANDS: Record<string, string> = {
+    '@yearly': '0 0 1 1 *',
+    '@annually': '0 0 1 1 *',
+    '@monthly': '0 0 1 * *',
+    '@weekly': '0 0 * * 0',
+    '@daily': '0 0 * * *',
+    '@midnight': '0 0 * * *',
+    '@hourly': '0 * * * *',
+  };
+
+  const SEARCH_YEARS = 10;
+
+  interface Field {
+    values: Set<number>;
+    wildcard: boolean;
+    raw: string;
+  }
+
+  const input = document.getElementById('cron') as HTMLInputElement | null;
+  const status = document.getElementById('status') as HTMLElement | null;
+  const results = document.getElementById('results') as HTMLElement | null;
+
+  function setStatus(message: string, kind: 'ok' | 'error' | '' = '') {
+    if (!status) return;
+    status.textContent = message;
+    status.className = `tool-status${kind ? ` tool-status--${kind}` : ''}`;
+  }
+
+  function parseField(
+    raw: string,
+    min: number,
+    max: number,
+    aliases: Record<string, number> = {}
+  ): Field {
+    const values = new Set<number>();
+    const wildcard = raw === '*';
+
+    for (const part of raw.split(',')) {
+      const [rangePart, stepPart] = part.split('/');
+      const step = stepPart === undefined ? 1 : Number(stepPart);
+
+      if (!Number.isInteger(step) || step < 1) {
+        throw new Error(`Invalid step "/${stepPart}" in "${raw}".`);
+      }
+
+      let from: number;
+      let to: number;
+
+      if (rangePart === '*') {
+        from = min;
+        to = max;
+      } else if (rangePart.includes('-')) {
+        const [a, b] = rangePart.split('-');
+        from = resolve(a, aliases);
+        to = resolve(b, aliases);
+      } else {
+        from = resolve(rangePart, aliases);
+        to = stepPart === undefined ? from : max;
+      }
+
+      if (Number.isNaN(from) || Number.isNaN(to)) {
+        throw new Error(`Could not read "${part}" — expected a number between ${min} and ${max}.`);
+      }
+      if (from < min || to > max || from > to) {
+        throw new Error(`"${part}" is out of range (${min}-${max}).`);
+      }
+
+      for (let value = from; value <= to; value += step) values.add(value);
+    }
+
+    if (values.size === 0) throw new Error(`"${raw}" matches nothing.`);
+    return { values, wildcard, raw };
+  }
+
+  function resolve(token: string, aliases: Record<string, number>): number {
+    const key = token.trim().toLowerCase();
+    if (key in aliases) return aliases[key];
+    return Number(key);
+  }
+
+  function list(values: number[], names?: string[]): string {
+    const labels = values.map((v) => (names ? names[v] : String(v)));
+    if (labels.length === 1) return labels[0];
+    if (labels.length === 2) return `${labels[0]} and ${labels[1]}`;
+    return `${labels.slice(0, -1).join(', ')} and ${labels[labels.length - 1]}`;
+  }
+
+  /** Detect an evenly-spaced step (as in a slash-step field) for nicer wording. */
+  function stepOf(field: Field, min: number, max: number): number | null {
+    const sorted = [...field.values].sort((a, b) => a - b);
+    if (sorted.length < 2 || sorted[0] !== min) return null;
+    const step = sorted[1] - sorted[0];
+    for (let i = 1; i < sorted.length; i++) {
+      if (sorted[i] - sorted[i - 1] !== step) return null;
+    }
+    return sorted[sorted.length - 1] + step > max ? step : null;
+  }
+
+  function describe(fields: Record<string, Field>): string {
+    const { minute, hour, dom, month, dow } = fields;
+    const minutes = [...minute.values].sort((a, b) => a - b);
+    const hours = [...hour.values].sort((a, b) => a - b);
+
+    let time: string;
+    const minuteStep = stepOf(minute, 0, 59);
+    const hourStep = stepOf(hour, 0, 23);
+
+    if (minute.wildcard && hour.wildcard) {
+      time = 'Every minute';
+    } else if (minute.wildcard) {
+      time = `Every minute during ${hours.length === 24 ? 'every hour' : `hour ${list(hours)}`}`;
+    } else if (minuteStep && minutes.length > 1) {
+      time = `Every ${minuteStep} minutes`;
+      if (!hour.wildcard) {
+        time += hourStep
+          ? `, every ${hourStep} hours`
+          : ` between ${pad(hours[0])}:00 and ${pad(hours[hours.length - 1])}:59`;
+      }
+    } else if (hour.wildcard) {
+      time = `At minute ${list(minutes)} of every hour`;
+    } else if (minutes.length === 1 && hours.length === 1) {
+      time = `At ${pad(hours[0])}:${pad(minutes[0])}`;
+    } else if (minutes.length === 1 && hourStep) {
+      time = `Every ${hourStep} hours at minute ${minutes[0]}`;
+    } else {
+      time = `At minute ${list(minutes)} past hour ${list(hours)}`;
+    }
+
+    const parts: string[] = [];
+
+    if (!dow.wildcard) {
+      const days = [...dow.values].map((d) => (d === 7 ? 0 : d)).sort((a, b) => a - b);
+      const isWeekdays = days.length === 5 && days.every((d) => d >= 1 && d <= 5);
+      const isWeekend = days.length === 2 && days.includes(0) && days.includes(6);
+      if (isWeekdays) parts.push('on weekdays');
+      else if (isWeekend) parts.push('at weekends');
+      else parts.push(`on ${list(days, DAYS)}`);
+    }
+
+    if (!dom.wildcard) {
+      const days = [...dom.values].sort((a, b) => a - b);
+      parts.push(`on day ${list(days)} of the month`);
+    }
+
+    if (!month.wildcard) {
+      const months = [...month.values].sort((a, b) => a - b);
+      parts.push(`in ${list(months.map((m) => m - 1).map((m) => m + 1), ['', ...MONTHS])}`);
+    }
+
+    let sentence = time + (parts.length ? ` ${parts.join(', ')}` : ', every day');
+
+    if (!dom.wildcard && !dow.wildcard) {
+      sentence += ' — note: cron treats day-of-month and day-of-week as OR, so it fires when either matches';
+    }
+
+    return `${sentence}.`;
+  }
+
+  const pad = (n: number) => String(n).padStart(2, '0');
+
+  function nextRuns(fields: Record<string, Field>, count: number): Date[] {
+    const { minute, hour, dom, month, dow } = fields;
+    const out: Date[] = [];
+
+    const cursor = new Date();
+    cursor.setSeconds(0, 0);
+    cursor.setMinutes(cursor.getMinutes() + 1);
+
+    // Bounded search so an unsatisfiable expression terminates instead of
+    // hanging. Wide enough that rare schedules (29 Feb) still show several runs.
+    const limit = new Date(cursor.getTime());
+    limit.setFullYear(limit.getFullYear() + SEARCH_YEARS);
+
+    while (out.length < count && cursor < limit) {
+      if (!month.values.has(cursor.getMonth() + 1)) {
+        cursor.setMonth(cursor.getMonth() + 1, 1);
+        cursor.setHours(0, 0, 0, 0);
+        continue;
+      }
+
+      const domMatch = dom.values.has(cursor.getDate());
+      const dowValues = new Set([...dow.values].map((d) => (d === 7 ? 0 : d)));
+      const dowMatch = dowValues.has(cursor.getDay());
+
+      // Standard cron: restricted DOM and DOW are OR'd; otherwise AND.
+      const dayMatch =
+        dom.wildcard && dow.wildcard
+          ? true
+          : dom.wildcard
+            ? dowMatch
+            : dow.wildcard
+              ? domMatch
+              : domMatch || dowMatch;
+
+      if (!dayMatch) {
+        cursor.setDate(cursor.getDate() + 1);
+        cursor.setHours(0, 0, 0, 0);
+        continue;
+      }
+
+      if (!hour.values.has(cursor.getHours())) {
+        cursor.setHours(cursor.getHours() + 1, 0, 0, 0);
+        continue;
+      }
+
+      if (!minute.values.has(cursor.getMinutes())) {
+        cursor.setMinutes(cursor.getMinutes() + 1, 0, 0);
+        continue;
+      }
+
+      out.push(new Date(cursor.getTime()));
+      cursor.setMinutes(cursor.getMinutes() + 1, 0, 0);
+    }
+
+    return out;
+  }
+
+  function relative(date: Date): string {
+    const diff = date.getTime() - Date.now();
+    const units: [number, string][] = [
+      [86400000, 'day'],
+      [3600000, 'hour'],
+      [60000, 'minute'],
+    ];
+    for (const [ms, label] of units) {
+      if (diff >= ms) {
+        const value = Math.floor(diff / ms);
+        return `in ${value} ${label}${value === 1 ? '' : 's'}`;
+      }
+    }
+    return 'in under a minute';
+  }
+
+  function addRow(container: HTMLElement, term: string, value: string) {
+    const wrapper = document.createElement('div');
+    const dt = document.createElement('dt');
+    dt.textContent = term;
+    const dd = document.createElement('dd');
+    dd.textContent = value;
+    wrapper.append(dt, dd);
+    container.appendChild(wrapper);
+  }
+
+  function run() {
+    const raw = input?.value.trim() ?? '';
+
+    if (!raw) {
+      setStatus('');
+      if (results) results.hidden = true;
+      return;
+    }
+
+    const expression = SHORTHANDS[raw.toLowerCase()] ?? raw;
+    const tokens = expression.split(/\s+/);
+
+    if (tokens.length !== 5) {
+      setStatus(
+        `Expected 5 fields (minute hour day-of-month month day-of-week), got ${tokens.length}.`,
+        'error'
+      );
+      if (results) results.hidden = true;
+      return;
+    }
+
+    let fields: Record<string, Field>;
+    try {
+      fields = {
+        minute: parseField(tokens[0], 0, 59),
+        hour: parseField(tokens[1], 0, 23),
+        dom: parseField(tokens[2], 1, 31),
+        month: parseField(tokens[3], 1, 12, MONTH_ALIASES),
+        dow: parseField(tokens[4], 0, 7, DOW_ALIASES),
+      };
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : String(error), 'error');
+      if (results) results.hidden = true;
+      return;
+    }
+
+    setStatus(
+      SHORTHANDS[raw.toLowerCase()] ? `${raw} expands to "${expression}".` : 'Valid expression.',
+      'ok'
+    );
+
+    (document.getElementById('description') as HTMLElement).textContent = describe(fields);
+
+    const breakdown = document.getElementById('breakdown') as HTMLElement;
+    breakdown.replaceChildren();
+    const labels: [string, string, string[] | undefined][] = [
+      ['Minute', 'minute', undefined],
+      ['Hour', 'hour', undefined],
+      ['Day of month', 'dom', undefined],
+      ['Month', 'month', ['', ...MONTHS]],
+      ['Day of week', 'dow', DAYS],
+    ];
+    for (const [label, key, names] of labels) {
+      const field = fields[key];
+      const values = [...field.values].sort((a, b) => a - b);
+      const rendered = field.wildcard
+        ? 'every value (*)'
+        : values.length > 12
+          ? `${values.length} values: ${values.slice(0, 8).join(', ')}…`
+          : list(values, names);
+      addRow(breakdown, `${label} — ${field.raw}`, rendered);
+    }
+
+    const runsList = document.getElementById('runs') as HTMLElement;
+    runsList.replaceChildren();
+    const upcoming = nextRuns(fields, 10);
+
+    if (upcoming.length === 0) {
+      const li = document.createElement('li');
+      li.textContent = `No runs in the next ${SEARCH_YEARS} years — check the day and month fields.`;
+      runsList.appendChild(li);
+    } else {
+      for (const date of upcoming) {
+        const li = document.createElement('li');
+        const when = document.createElement('span');
+        when.textContent = date.toLocaleString('en-GB', {
+          weekday: 'short',
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false,
+        });
+        const rel = document.createElement('span');
+        rel.className = 'rel';
+        rel.textContent = relative(date);
+        li.append(when, rel);
+        runsList.appendChild(li);
+      }
+    }
+
+    (document.getElementById('tz') as HTMLElement).textContent =
+      Intl.DateTimeFormat().resolvedOptions().timeZone ?? 'local time';
+
+    if (results) results.hidden = false;
+  }
+
+  input?.addEventListener('input', run);
+
+  document.querySelectorAll<HTMLButtonElement>('.example').forEach((button) => {
+    button.addEventListener('click', () => {
+      if (input) input.value = button.dataset.expr ?? '';
+      run();
+    });
+  });
+
+  run();
+</script>

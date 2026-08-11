@@ -1,0 +1,648 @@
+---
+import ToolLayout from '../../layouts/ToolLayout.astro';
+
+const columns = [
+  { id: 'subnet', label: 'Subnet address', on: true },
+  { id: 'netmask', label: 'Netmask', on: false },
+  { id: 'range', label: 'Range of addresses', on: true },
+  { id: 'useable', label: 'Useable IPs', on: true },
+  { id: 'hosts', label: 'Hosts', on: true },
+  { id: 'divide', label: 'Divide', on: true },
+  { id: 'join', label: 'Join', on: true },
+];
+
+const presets = [
+  { label: '10.0.0.0/8', network: '10.0.0.0', bits: 8 },
+  { label: '172.16.0.0/12', network: '172.16.0.0', bits: 12 },
+  { label: '192.168.0.0/16', network: '192.168.0.0', bits: 16 },
+  { label: '10.0.0.0/16 (VPC)', network: '10.0.0.0', bits: 16 },
+];
+---
+
+<ToolLayout slug="subnet-calculator">
+  <div class="tool-panel">
+    <form id="calc-form" class="tool-row" novalidate>
+      <div class="tool-field">
+        <label for="network">Network address</label>
+        <input
+          id="network"
+          class="tool-input tool-input--mono"
+          type="text"
+          value="192.168.0.0"
+          size="15"
+          maxlength="15"
+          inputmode="decimal"
+          autocomplete="off"
+          spellcheck="false"
+        />
+      </div>
+
+      <div class="tool-field mask-field">
+        <label for="netbits">Mask bits</label>
+        <div class="mask-input">
+          <span aria-hidden="true">/</span>
+          <input
+            id="netbits"
+            class="tool-input tool-input--mono"
+            type="number"
+            value="16"
+            min="0"
+            max="32"
+            step="1"
+          />
+        </div>
+      </div>
+
+      <button type="submit" class="btn btn--primary">Update</button>
+      <button type="button" class="btn" id="reset-btn">Reset divisions</button>
+    </form>
+
+    <p id="calc-error" class="tool-status tool-status--error" role="alert"></p>
+
+    <div class="presets">
+      <span class="tool-label">Presets:</span>
+      {
+        presets.map((p) => (
+          <button type="button" class="btn btn--sm preset" data-network={p.network} data-bits={p.bits}>
+            {p.label}
+          </button>
+        ))
+      }
+    </div>
+  </div>
+
+  <div class="tool-panel">
+    <div class="tool-head-row">
+      <p class="tool-panel__title">Show columns</p>
+      <div class="tool-actions">
+        <button type="button" class="btn btn--sm" id="copy-link">Copy shareable link</button>
+        <button type="button" class="btn btn--sm" id="export-csv">Export CSV</button>
+      </div>
+    </div>
+
+    <div class="tool-checks">
+      {
+        columns.map((c) => (
+          <label class="tool-check">
+            <input type="checkbox" id={`cb_${c.id}`} checked={c.on} data-col={c.id} />
+            {c.label}
+          </label>
+        ))
+      }
+    </div>
+
+    <p class="hint dim">
+      Click <strong>Divide</strong> to split a subnet in two. Click a bracket in the
+      <strong>Join</strong> column to merge everything under it back together.
+    </p>
+  </div>
+
+  <div class="tool-panel results">
+    <div class="tool-head-row">
+      <p class="tool-panel__title">Subnets</p>
+      <p class="summary dim" id="summary"></p>
+    </div>
+
+    <div class="scroll-x">
+      <table class="tool-table calc-table">
+        <thead>
+          <tr>
+            <th id="subnetHeader">Subnet address</th>
+            <th id="netmaskHeader">Netmask</th>
+            <th id="rangeHeader">Range of addresses</th>
+            <th id="useableHeader">Useable IPs</th>
+            <th id="hostsHeader">Hosts</th>
+            <th id="divideHeader">Divide</th>
+            <th id="joinHeader">Join</th>
+          </tr>
+        </thead>
+        <tbody id="calcbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <noscript>
+    <p class="tool-status tool-status--error">
+      This calculator needs JavaScript — it does all of its work in your browser.
+    </p>
+  </noscript>
+</ToolLayout>
+
+<style>
+  .mask-field .mask-input {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+  }
+
+  .mask-field .mask-input span {
+    color: var(--fg-3);
+    font-family: var(--font-mono);
+  }
+
+  .mask-field input {
+    width: 5rem;
+  }
+
+  .presets {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem;
+    margin-top: 1rem;
+  }
+
+  .hint {
+    font-size: 0.82rem;
+    margin-top: 1rem;
+  }
+
+  .summary {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+  }
+
+  .calc-table {
+    min-width: 44rem;
+  }
+
+  .calc-table td {
+    vertical-align: middle;
+  }
+
+  /* Divide / join controls */
+  .calc-table :global(.divide-btn) {
+    background: none;
+    border: 0;
+    padding: 0.1rem 0.3rem;
+    border-radius: 4px;
+    color: var(--signal);
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    cursor: pointer;
+  }
+
+  .calc-table :global(.divide-btn:hover) {
+    background: var(--signal-soft);
+    color: var(--signal);
+  }
+
+  .calc-table :global(.divide-btn[disabled]) {
+    color: var(--fg-3);
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+
+  /* The join column: a stack of nested brackets, one per mask level. */
+  .calc-table :global(.join-cell) {
+    background: var(--bg-2);
+    padding: 0;
+    width: 2.4rem;
+    min-width: 2.4rem;
+    text-align: center;
+    position: relative;
+  }
+
+  .calc-table :global(.join-cell .join-label) {
+    display: block;
+    font-size: 0.68rem;
+    color: var(--fg-3);
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    margin: 0 auto;
+    padding: 0.2rem 0;
+    white-space: nowrap;
+  }
+
+  .calc-table :global(.join-cell--joinable) {
+    cursor: pointer;
+    background: var(--signal-soft);
+  }
+
+  .calc-table :global(.join-cell--joinable:hover) {
+    background: color-mix(in srgb, var(--signal) 25%, transparent);
+  }
+
+  .calc-table :global(.join-cell--joinable .join-label) {
+    color: var(--signal);
+    font-weight: 600;
+  }
+
+  .calc-table :global(.join-cell--joinable:hover .join-label::after) {
+    content: ' ⇤ join';
+  }
+
+  /* Hidden columns */
+  .calc-table :global(.is-hidden) {
+    display: none;
+  }
+</style>
+
+<script>
+  interface Node {
+    /** Height of the subtree below this node (0 for an undivided subnet). */
+    height: number;
+    /** Number of leaf subnets under this node (0 for a leaf). */
+    leaves: number;
+    children: [Node, Node] | null;
+  }
+
+  type ColumnId = 'subnet' | 'netmask' | 'range' | 'useable' | 'hosts' | 'divide' | 'join';
+
+  const visible: Record<ColumnId, boolean> = {
+    subnet: true,
+    netmask: false,
+    range: true,
+    useable: true,
+    hosts: true,
+    divide: true,
+    join: true,
+  };
+
+  let root: Node = { height: 0, leaves: 0, children: null };
+  let baseNetwork = 0;
+  let baseMask = 0;
+
+  // ---------------------------------------------------------------- helpers
+
+  const ntoa = (n: number): string => {
+    const u = n >>> 0;
+    return `${(u >>> 24) & 255}.${(u >>> 16) & 255}.${(u >>> 8) & 255}.${u & 255}`;
+  };
+
+  function aton(s: string): number | null {
+    const m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(s.trim());
+    if (!m) return null;
+    let out = 0;
+    for (let i = 1; i <= 4; i++) {
+      const octet = Number(m[i]);
+      if (!Number.isInteger(octet) || octet < 0 || octet > 255) return null;
+      out = out * 256 + octet;
+    }
+    return out >>> 0;
+  }
+
+  const netmaskInt = (mask: number): number =>
+    mask === 0 ? 0 : ((0xffffffff << (32 - mask)) >>> 0);
+
+  const networkAddress = (ip: number, mask: number): number => (ip & netmaskInt(mask)) >>> 0;
+
+  const subnetSize = (mask: number): number => 2 ** (32 - mask);
+
+  const lastAddress = (addr: number, mask: number): number => addr + subnetSize(mask) - 1;
+
+  function hostCount(mask: number): number {
+    if (mask === 32) return 1;
+    if (mask === 31) return 2; // RFC 3021 point-to-point
+    return subnetSize(mask) - 2;
+  }
+
+  // ------------------------------------------------------------- tree stats
+
+  /** Recompute leaf counts and subtree heights; returns leaves under `node`. */
+  function measure(node: Node): number {
+    if (!node.children) {
+      node.leaves = 0;
+      node.height = 0;
+      return 1;
+    }
+    const [l, r] = node.children;
+    const leaves = measure(l) + measure(r);
+    node.leaves = leaves;
+    node.height = 1 + Math.max(l.height, r.height);
+    return leaves;
+  }
+
+  // ------------------------------------------------------- serialise / load
+
+  const treeToBits = (node: Node): string =>
+    node.children ? `1${treeToBits(node.children[0])}${treeToBits(node.children[1])}` : '0';
+
+  function bitsToHex(bits: string): string {
+    let out = '';
+    let chunk = 0;
+    let bit = 0;
+    for (const ch of bits) {
+      if (ch === '1') chunk |= 1 << bit;
+      if (++bit > 3) {
+        out += chunk.toString(16);
+        chunk = 0;
+        bit = 0;
+      }
+    }
+    if (bit > 0) out += chunk.toString(16);
+    return `${bits.length}.${out}`;
+  }
+
+  function hexToBits(encoded: string): string {
+    const m = /^(\d+)\.([0-9a-f]*)$/.exec(encoded);
+    if (!m) return '0';
+    const len = Number(m[1]);
+    const hex = m[2];
+    let out = '';
+    for (let i = 0; i < len; i++) {
+      const ch = parseInt(hex.charAt(Math.floor(i / 4)) || '0', 16);
+      out += ch & (1 << i % 4) ? '1' : '0';
+    }
+    return out;
+  }
+
+  /** Rebuild a tree from its preorder bit string; returns the unconsumed tail. */
+  function loadNode(node: Node, bits: string): string {
+    if (bits.charAt(0) !== '1') return bits.substring(1);
+    node.children = [
+      { height: 0, leaves: 0, children: null },
+      { height: 0, leaves: 0, children: null },
+    ];
+    let rest = loadNode(node.children[0], bits.substring(1));
+    rest = loadNode(node.children[1], rest);
+    return rest;
+  }
+
+  // ------------------------------------------------------------- rendering
+
+  const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T | null;
+
+  const form = $<HTMLFormElement>('calc-form');
+  const networkInput = $<HTMLInputElement>('network');
+  const bitsInput = $<HTMLInputElement>('netbits');
+  const body = $<HTMLTableSectionElement>('calcbody');
+  const errorBox = $<HTMLParagraphElement>('calc-error');
+  const summaryBox = $<HTMLParagraphElement>('summary');
+
+  function setError(message: string) {
+    if (errorBox) errorBox.textContent = message;
+  }
+
+  function cell(row: HTMLTableRowElement, text: string, show: boolean) {
+    const td = document.createElement('td');
+    td.textContent = text;
+    if (!show) td.classList.add('is-hidden');
+    row.appendChild(td);
+    return td;
+  }
+
+  function render() {
+    if (!body) return;
+
+    measure(root);
+    body.replaceChildren();
+
+    const height = root.height;
+    const rows: string[][] = [];
+
+    // Walk leaves left to right, carrying the chain of ancestors for which
+    // this leaf is the leftmost descendant — those are the joinable brackets.
+    const walk = (node: Node, address: number, mask: number, chain: [Node, number][]) => {
+      if (node.children) {
+        walk(node.children[0], address, mask + 1, [...chain, [node.children[0], mask + 1]]);
+        walk(node.children[1], address + subnetSize(mask + 1), mask + 1, [
+          [node.children[1], mask + 1],
+        ]);
+        return;
+      }
+
+      const row = document.createElement('tr');
+      const first = address;
+      const last = lastAddress(address, mask);
+
+      const rangeText = mask === 32 ? ntoa(first) : `${ntoa(first)} - ${ntoa(last)}`;
+      const useableText =
+        mask >= 31 ? rangeText : `${ntoa(first + 1)} - ${ntoa(last - 1)}`;
+      const hosts = hostCount(mask);
+
+      cell(row, `${ntoa(address)}/${mask}`, visible.subnet);
+      cell(row, ntoa(netmaskInt(mask)), visible.netmask);
+      cell(row, rangeText, visible.range);
+      cell(row, useableText, visible.useable);
+      cell(row, hosts.toLocaleString('en-US'), visible.hosts);
+
+      rows.push([
+        `${ntoa(address)}/${mask}`,
+        ntoa(netmaskInt(mask)),
+        rangeText,
+        useableText,
+        String(hosts),
+      ]);
+
+      // Divide
+      const divideTd = document.createElement('td');
+      if (!visible.divide) divideTd.classList.add('is-hidden');
+      const divideBtn = document.createElement('button');
+      divideBtn.type = 'button';
+      divideBtn.className = 'divide-btn';
+      divideBtn.textContent = 'Divide';
+      if (mask >= 32) {
+        divideBtn.disabled = true;
+        divideBtn.title = 'A /32 is a single address and cannot be divided';
+      } else {
+        divideBtn.addEventListener('click', () => {
+          node.children = [
+            { height: 0, leaves: 0, children: null },
+            { height: 0, leaves: 0, children: null },
+          ];
+          render();
+        });
+      }
+      divideTd.appendChild(divideBtn);
+      row.appendChild(divideTd);
+
+      // Join brackets: this leaf first (not joinable), then its ancestors.
+      if (visible.join) {
+        const depth = mask - baseMask;
+        const entries = [...chain].reverse();
+
+        entries.forEach(([entryNode, entryMask], index) => {
+          const td = document.createElement('td');
+          td.className = 'join-cell';
+
+          if (index === 0) {
+            // The leaf's own bracket fills the unused deeper columns. The join
+            // area is (height + 1) columns wide, so a leaf at `depth` spans
+            // everything below it plus its own column.
+            const span = height - depth + 1;
+            if (span > 1) td.colSpan = span;
+          } else {
+            td.classList.add('join-cell--joinable');
+            if (entryNode.leaves > 1) td.rowSpan = entryNode.leaves;
+            td.title = `Join back into /${entryMask}`;
+            td.tabIndex = 0;
+            td.setAttribute('role', 'button');
+            const join = () => {
+              entryNode.children = null;
+              render();
+            };
+            td.addEventListener('click', join);
+            td.addEventListener('keydown', (event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                join();
+              }
+            });
+          }
+
+          const label = document.createElement('span');
+          label.className = 'join-label';
+          label.textContent = `/${entryMask}`;
+          td.appendChild(label);
+          row.appendChild(td);
+        });
+      }
+
+      body.appendChild(row);
+    };
+
+    walk(root, baseNetwork, baseMask, [[root, baseMask]]);
+
+    // Header visibility + join header span
+    for (const key of Object.keys(visible) as ColumnId[]) {
+      const header = document.getElementById(`${key}Header`);
+      header?.classList.toggle('is-hidden', !visible[key]);
+    }
+    const joinHeader = document.getElementById('joinHeader') as HTMLTableCellElement | null;
+    if (joinHeader) joinHeader.colSpan = height + 1;
+
+    const leafCount = root.children ? root.leaves : 1;
+    if (summaryBox) {
+      summaryBox.textContent = `${leafCount} subnet${leafCount === 1 ? '' : 's'} · ${ntoa(
+        baseNetwork
+      )}/${baseMask} · ${subnetSize(baseMask).toLocaleString('en-US')} addresses`;
+    }
+
+    csvRows = rows;
+    syncUrl();
+  }
+
+  let csvRows: string[][] = [];
+
+  function syncUrl() {
+    const params = new URLSearchParams({
+      network: ntoa(baseNetwork),
+      mask: String(baseMask),
+      division: bitsToHex(treeToBits(root)),
+    });
+    history.replaceState(null, '', `${location.pathname}?${params.toString()}`);
+  }
+
+  // ---------------------------------------------------------------- actions
+
+  function applyNetwork(showConfirm = true): boolean {
+    setError('');
+    const parsed = aton(networkInput?.value ?? '');
+    const maskValue = Number(bitsInput?.value);
+
+    if (parsed === null) {
+      setError('That does not look like a valid IPv4 address.');
+      return false;
+    }
+    if (!Number.isInteger(maskValue) || maskValue < 0 || maskValue > 32) {
+      setError('Mask bits must be a whole number between 0 and 32.');
+      return false;
+    }
+
+    const aligned = networkAddress(parsed, maskValue);
+    if (aligned !== parsed) {
+      setError(
+        `${ntoa(parsed)} is not on a /${maskValue} boundary — snapped to ${ntoa(aligned)}.`
+      );
+      if (networkInput) networkInput.value = ntoa(aligned);
+    }
+
+    const maskChanged = baseMask !== 0 && maskValue !== baseMask;
+    const hasDivisions = root.children !== null;
+
+    if (
+      showConfirm &&
+      maskChanged &&
+      hasDivisions &&
+      !confirm(
+        `Changing the base network from /${baseMask} to /${maskValue} will discard your subnet divisions. Continue?`
+      )
+    ) {
+      if (bitsInput) bitsInput.value = String(baseMask);
+      return false;
+    }
+
+    if (maskChanged) root = { height: 0, leaves: 0, children: null };
+
+    baseNetwork = aligned;
+    baseMask = maskValue;
+    render();
+    return true;
+  }
+
+  form?.addEventListener('submit', (event) => {
+    event.preventDefault();
+    applyNetwork();
+  });
+
+  $('reset-btn')?.addEventListener('click', () => {
+    if (root.children && !confirm('This clears every subnet division. Continue?')) return;
+    root = { height: 0, leaves: 0, children: null };
+    render();
+  });
+
+  document.querySelectorAll<HTMLButtonElement>('.preset').forEach((button) => {
+    button.addEventListener('click', () => {
+      if (networkInput) networkInput.value = button.dataset.network ?? '';
+      if (bitsInput) bitsInput.value = button.dataset.bits ?? '';
+      applyNetwork();
+    });
+  });
+
+  document.querySelectorAll<HTMLInputElement>('[data-col]').forEach((checkbox) => {
+    checkbox.addEventListener('change', () => {
+      visible[checkbox.dataset.col as ColumnId] = checkbox.checked;
+      render();
+    });
+  });
+
+  $('copy-link')?.addEventListener('click', async (event) => {
+    const button = event.currentTarget as HTMLButtonElement;
+    const original = button.textContent;
+    try {
+      await navigator.clipboard.writeText(location.href);
+      button.textContent = 'Copied ✓';
+    } catch {
+      button.textContent = 'Copy failed';
+    }
+    setTimeout(() => {
+      button.textContent = original;
+    }, 1600);
+  });
+
+  $('export-csv')?.addEventListener('click', () => {
+    const header = ['Subnet', 'Netmask', 'Range', 'Useable', 'Hosts'];
+    const csv = [header, ...csvRows]
+      .map((row) => row.map((value) => `"${value.replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `subnets-${ntoa(baseNetwork).replace(/\./g, '-')}-${baseMask}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  });
+
+  // ------------------------------------------------------------------- init
+
+  const params = new URLSearchParams(location.search);
+  const qsNetwork = params.get('network');
+  const qsMask = params.get('mask');
+  const qsDivision = params.get('division');
+
+  if (qsNetwork && qsMask) {
+    if (networkInput) networkInput.value = qsNetwork;
+    if (bitsInput) bitsInput.value = qsMask;
+  }
+
+  if (applyNetwork(false) && qsDivision) {
+    const bits = hexToBits(qsDivision);
+    if (bits && bits !== '0') {
+      root = { height: 0, leaves: 0, children: null };
+      loadNode(root, bits);
+      render();
+    }
+  }
+</script>

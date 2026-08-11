@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+
+# Static personal site — nothing here is private, everything is crawlable.
+Sitemap: https://imsurajkr.github.io/sitemap-index.xml

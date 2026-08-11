@@ -1,0 +1,100 @@
+---
+/**
+ * A section header drawn like a dimension line on an engineering drawing:
+ * the index and label sit *on* a hairline rule that runs to the edge.
+ */
+export interface Props {
+  index: string;
+  label: string;
+  title: string;
+  summary?: string;
+  id?: string;
+}
+
+const { index, label, title, summary, id } = Astro.props;
+---
+
+<header class="sh" id={id}>
+  <div class="sh__rule" data-reveal>
+    <span class="sh__index">{index}</span>
+    <span class="sh__tick" aria-hidden="true"></span>
+    <span class="sh__label">{label}</span>
+    <span class="sh__line" aria-hidden="true"></span>
+  </div>
+
+  <h2 class="sh__title" data-reveal style="--reveal-delay: 60ms">{title}</h2>
+  {summary && <p class="sh__summary prose" data-reveal style="--reveal-delay: 110ms">{summary}</p>}
+</header>
+
+<style>
+  .sh {
+    margin-bottom: var(--s-6);
+  }
+
+  .sh__rule {
+    display: flex;
+    align-items: center;
+    gap: var(--s-2);
+    margin-bottom: var(--s-4);
+  }
+
+  .sh__index {
+    font-family: var(--font-mono);
+    font-size: var(--step--2);
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    color: var(--signal);
+    padding: 0.1rem 0.4rem;
+    border: 1px solid color-mix(in srgb, var(--signal) 32%, transparent);
+    background: var(--signal-soft);
+    border-radius: var(--r-sm);
+  }
+
+  .sh__tick {
+    width: 10px;
+    height: 1px;
+    background: var(--line-2);
+    flex: none;
+  }
+
+  .sh__label {
+    font-family: var(--font-mono);
+    font-size: var(--step--2);
+    font-weight: 500;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--fg-3);
+    white-space: nowrap;
+  }
+
+  /* The rule runs out to the container edge, terminating in an end tick. */
+  .sh__line {
+    flex: 1;
+    height: 1px;
+    min-width: var(--s-4);
+    background: linear-gradient(to right, var(--line-2), var(--line) 60%, transparent);
+    position: relative;
+  }
+
+  .sh__line::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: -3px;
+    width: 1px;
+    height: 7px;
+    background: var(--line-2);
+  }
+
+  .sh__title {
+    font-size: var(--step-3);
+    max-width: 22ch;
+  }
+
+  .sh__summary {
+    margin-top: var(--s-3);
+    color: var(--fg-2);
+    font-size: var(--step-0);
+    line-height: 1.6;
+  }
+</style>

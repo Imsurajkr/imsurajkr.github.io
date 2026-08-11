@@ -1,0 +1,518 @@
+---
+/**
+ * A live terminal session that types real DevOps commands and prints plausible
+ * output. This is the hero's centrepiece — it says "infrastructure engineer"
+ * faster than any paragraph could.
+ *
+ * The animated region is aria-hidden; a static text equivalent sits beside it
+ * for assistive tech, and reduced-motion visitors get the finished session
+ * rendered immediately instead of typed.
+ */
+---
+
+<div class="term-stack">
+  <section class="term" aria-label="Terminal session demonstrating DevOps work">
+    <header class="term__bar">
+      <div class="term__dots" aria-hidden="true">
+        <span class="dot dot--close"></span>
+        <span class="dot dot--min"></span>
+        <span class="dot dot--max"></span>
+      </div>
+      <p class="term__title">suraj@control-plane: ~/platform</p>
+      <p class="term__badge" aria-hidden="true">zsh</p>
+    </header>
+
+    <div class="term__screen">
+      <div id="term-out" class="term__out" aria-hidden="true"></div>
+      <p class="visually-hidden">
+        A terminal session showing: whoami returning suraj_kumar, a Kubernetes node listing across
+        AWS, Azure and GCP clusters, a Terraform apply completing, a CVE scan reporting zero
+        criticals, and a grep across the platform team ownership files.
+      </p>
+      <span id="term-cursor" class="term__cursor" aria-hidden="true">▋</span>
+    </div>
+  </section>
+
+  <!-- bashtop-style telemetry strip -->
+  <section class="btop" aria-label="Sample cluster telemetry">
+    <header class="btop__head">
+      <span class="btop__title">cluster-telemetry</span>
+      <span class="btop__note">sample</span>
+    </header>
+
+    <div class="btop__grid">
+      <div class="gauge" data-gauge="cpu" data-min="24" data-max="68">
+        <span class="gauge__label">cpu</span>
+        <span class="gauge__bar"><i></i></span>
+        <span class="gauge__val">—</span>
+      </div>
+      <div class="gauge" data-gauge="mem" data-min="42" data-max="74">
+        <span class="gauge__label">mem</span>
+        <span class="gauge__bar"><i></i></span>
+        <span class="gauge__val">—</span>
+      </div>
+      <div class="gauge" data-gauge="net" data-min="12" data-max="88">
+        <span class="gauge__label">net</span>
+        <span class="gauge__bar"><i></i></span>
+        <span class="gauge__val">—</span>
+      </div>
+      <div class="gauge" data-gauge="pods" data-min="60" data-max="92">
+        <span class="gauge__label">pods</span>
+        <span class="gauge__bar"><i></i></span>
+        <span class="gauge__val">—</span>
+      </div>
+    </div>
+  </section>
+</div>
+
+<style>
+  .term-stack {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-3);
+  }
+
+  /* ------------------------------------------------------------ terminal -- */
+
+  .term {
+    /* Frosted panel so the background glow reads through it. */
+    background: color-mix(in srgb, var(--bg-1) 82%, transparent);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--line-2);
+    border-radius: var(--r-lg);
+    overflow: hidden;
+  }
+
+  .term__bar {
+    display: flex;
+    align-items: center;
+    gap: var(--s-3);
+    padding: 0.55rem 0.8rem;
+    background: color-mix(in srgb, var(--bg-2) 75%, transparent);
+    border-bottom: 1px solid var(--line);
+  }
+
+  .term__dots {
+    display: flex;
+    gap: 0.4rem;
+  }
+
+  .dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: block;
+    opacity: 0.85;
+  }
+
+  .dot--close {
+    background: #ec6a5e;
+  }
+  .dot--min {
+    background: #f4bf4f;
+  }
+  .dot--max {
+    background: #61c554;
+  }
+
+  .term__title {
+    flex: 1;
+    text-align: center;
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    color: var(--fg-3);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .term__badge {
+    font-family: var(--font-mono);
+    font-size: 0.62rem;
+    letter-spacing: 0.08em;
+    color: var(--fg-4);
+    border: 1px solid var(--line);
+    border-radius: var(--r-sm);
+    padding: 0.05rem 0.35rem;
+  }
+
+  /* Fixed height with the output scrolled to the bottom, exactly like a real
+     terminal. Without this the panel would grow as the session types and shove
+     the rest of the page down. */
+  .term__screen {
+    position: relative;
+    padding: var(--s-4);
+    height: 22rem;
+    overflow-y: auto;
+    scrollbar-width: none;
+    /* Fade out scrollback at the top edge so clipping looks intentional. */
+    mask-image: linear-gradient(to bottom, transparent 0, #000 2rem);
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 2rem);
+  }
+
+  .term__screen::-webkit-scrollbar {
+    display: none;
+  }
+
+  .term__out {
+    margin: 0;
+    font-family: var(--font-mono);
+    font-size: 0.76rem;
+    line-height: 1.65;
+    white-space: pre-wrap;
+    word-break: break-word;
+    color: var(--fg-2);
+  }
+
+  /* Output token colours — a real prompt's semantics, using our palette. */
+  .term__out :global(.p-user) {
+    color: var(--health);
+    font-weight: 600;
+  }
+  .term__out :global(.p-path) {
+    color: var(--signal);
+  }
+  .term__out :global(.p-sym) {
+    color: var(--fg-4);
+  }
+  .term__out :global(.cmd) {
+    color: var(--fg);
+    font-weight: 500;
+  }
+  .term__out :global(.ok) {
+    color: var(--health);
+  }
+  .term__out :global(.warn) {
+    color: var(--guard);
+  }
+  .term__out :global(.info) {
+    color: var(--signal);
+  }
+  .term__out :global(.muted) {
+    color: var(--fg-4);
+  }
+  .term__out :global(.hit) {
+    background: color-mix(in srgb, var(--guard) 22%, transparent);
+    color: var(--guard);
+    border-radius: 2px;
+  }
+
+  .term__cursor {
+    display: inline-block;
+    vertical-align: baseline;
+    font-family: var(--font-mono);
+    font-size: 0.76rem;
+    color: var(--health);
+    animation: blink 1.1s steps(1) infinite;
+    margin-left: -0.15rem;
+  }
+
+  @keyframes blink {
+    0%,
+    50% {
+      opacity: 1;
+    }
+    51%,
+    100% {
+      opacity: 0;
+    }
+  }
+
+  /* ------------------------------------------------------------- bashtop -- */
+
+  .btop {
+    background: color-mix(in srgb, var(--bg-1) 82%, transparent);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--line);
+    border-radius: var(--r);
+    padding: var(--s-3) var(--s-4) var(--s-4);
+  }
+
+  .btop__head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--s-3);
+    margin-bottom: var(--s-3);
+  }
+
+  .btop__title,
+  .btop__note {
+    font-family: var(--font-mono);
+    font-size: 0.62rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  .btop__title {
+    color: var(--fg-3);
+  }
+
+  .btop__note {
+    color: var(--fg-4);
+  }
+
+  .btop__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr));
+    gap: var(--s-2) var(--s-4);
+  }
+
+  .gauge {
+    display: grid;
+    grid-template-columns: 2.2rem 1fr 2.6rem;
+    align-items: center;
+    gap: var(--s-2);
+    font-family: var(--font-mono);
+    font-size: 0.66rem;
+  }
+
+  .gauge__label {
+    color: var(--fg-4);
+    letter-spacing: 0.08em;
+  }
+
+  .gauge__bar {
+    height: 5px;
+    border-radius: 2px;
+    background: var(--bg-3);
+    overflow: hidden;
+  }
+
+  .gauge__bar i {
+    display: block;
+    height: 100%;
+    width: 0%;
+    background: var(--health);
+    transition: width 0.9s var(--ease-out), background 0.9s var(--ease-out);
+  }
+
+  .gauge.is-high .gauge__bar i {
+    background: var(--guard);
+  }
+
+  .gauge__val {
+    text-align: right;
+    color: var(--fg-2);
+    font-variant-numeric: tabular-nums;
+  }
+
+  @media (max-width: 30rem) {
+    .term__screen {
+      padding: var(--s-3);
+      min-height: 19rem;
+    }
+    .term__out,
+    .term__cursor {
+      font-size: 0.7rem;
+    }
+  }
+</style>
+
+<script>
+  interface Step {
+    cmd: string;
+    /** Output lines as HTML (they carry colour spans). */
+    out: string[];
+    /** Pause after the output, in ms. */
+    wait?: number;
+  }
+
+  const PROMPT =
+    '<span class="p-user">suraj@control-plane</span><span class="p-sym">:</span>' +
+    '<span class="p-path">~/platform</span><span class="p-sym">$</span> ';
+
+  const SESSION: Step[] = [
+    {
+      cmd: 'whoami',
+      out: [
+        'suraj_kumar',
+        '<span class="muted">senior platform &amp; devops engineer · gurugram, in</span>',
+      ],
+      wait: 700,
+    },
+    {
+      cmd: 'kubectl get nodes -o wide',
+      out: [
+        '<span class="muted">NAME                 STATUS   ROLES    AGE    VERSION   CLOUD</span>',
+        'ip-10-0-1-14         <span class="ok">Ready</span>    worker   412d   v1.29.4   <span class="info">aws/eks</span>',
+        'ip-10-0-2-31         <span class="ok">Ready</span>    worker   412d   v1.29.4   <span class="info">aws/eks</span>',
+        'aks-sys-2049-vmss    <span class="ok">Ready</span>    worker   288d   v1.28.9   <span class="info">azure/aks</span>',
+        'gke-prod-pool-7f2a   <span class="ok">Ready</span>    worker   193d   v1.29.1   <span class="info">gcp/gke</span>',
+      ],
+      wait: 900,
+    },
+    {
+      cmd: 'terraform apply -auto-approve',
+      out: [
+        '<span class="muted">module.network.aws_vpc.main: Creating…</span>',
+        '<span class="muted">module.eks.aws_eks_cluster.this: Still creating… [2m10s]</span>',
+        '<span class="ok">Apply complete!</span> Resources: <span class="ok">34 added</span>, 2 changed, <span class="muted">0 destroyed</span>.',
+      ],
+      wait: 800,
+    },
+    {
+      cmd: 'trivy image --severity CRITICAL registry/api:1.4.2',
+      out: [
+        '<span class="muted">Scanning 214 packages…</span>',
+        'CRITICAL: <span class="ok">0</span>   HIGH: <span class="warn">2</span>   MEDIUM: 11',
+        '<span class="ok">✓</span> gate passed — promoting to <span class="info">blue-green</span> rollout',
+      ],
+      wait: 800,
+    },
+    {
+      cmd: 'helm rollback api --wait',
+      out: [
+        '<span class="muted">rolling back api to revision 41…</span>',
+        '<span class="ok">✓</span> rollback complete — <span class="ok">zero downtime</span>, 0 failed requests',
+      ],
+      wait: 800,
+    },
+    {
+      cmd: 'grep -ri "suraj" ./team/',
+      out: [
+        './team/platform/OWNERS: <span class="hit">suraj</span>_kumar',
+        './team/oncall/rota.yaml: primary: <span class="hit">suraj</span>_kumar',
+        './team/adr/0042-service-mesh.md: author: <span class="hit">suraj</span>_kumar',
+      ],
+      wait: 1600,
+    },
+  ];
+
+  const screen = document.getElementById('term-out');
+  const pane = screen?.closest('.term__screen') as HTMLElement | null;
+  const cursor = document.getElementById('term-cursor');
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  const scrollToEnd = () => {
+    if (pane) pane.scrollTop = pane.scrollHeight;
+  };
+
+  /** Wait until the tab is visible again — no animation work in a background tab. */
+  async function whileVisible() {
+    while (document.hidden) await sleep(400);
+  }
+
+  function line(html: string): HTMLElement {
+    const el = document.createElement('div');
+    el.innerHTML = html;
+    return el;
+  }
+
+  /** Render the finished session at once — reduced motion, or as a fallback. */
+  function renderStatic() {
+    if (!screen) return;
+    screen.replaceChildren();
+    for (const step of SESSION) {
+      screen.appendChild(line(PROMPT + `<span class="cmd">${step.cmd}</span>`));
+      for (const out of step.out) screen.appendChild(line(out));
+      screen.appendChild(line('&nbsp;'));
+    }
+    screen.appendChild(line(PROMPT));
+    scrollToEnd();
+  }
+
+  async function runSession() {
+    if (!screen) return;
+
+    for (const step of SESSION) {
+      await whileVisible();
+
+      // One node for the prompt line; the command span is updated in place
+      // rather than re-parsing the whole terminal on every keystroke.
+      const promptLine = line(PROMPT);
+      const cmdSpan = document.createElement('span');
+      cmdSpan.className = 'cmd';
+      promptLine.appendChild(cmdSpan);
+      // appendChild moves the existing node, so the cursor follows the typing.
+      if (cursor) promptLine.appendChild(cursor);
+      screen.appendChild(promptLine);
+      scrollToEnd();
+
+      for (const char of step.cmd) {
+        cmdSpan.textContent += char;
+        scrollToEnd();
+        await sleep(26 + Math.random() * 34);
+      }
+
+      await sleep(280);
+
+      for (const out of step.out) {
+        screen.appendChild(line(out));
+        scrollToEnd();
+        await sleep(110);
+      }
+
+      screen.appendChild(line('&nbsp;'));
+      scrollToEnd();
+      await sleep(step.wait ?? 600);
+    }
+
+    // Idle at a fresh prompt with the cursor blinking.
+    const idle = line(PROMPT);
+    if (cursor) idle.appendChild(cursor);
+    screen.appendChild(idle);
+    scrollToEnd();
+  }
+
+  async function loop() {
+    if (!screen) return;
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      screen.replaceChildren();
+      await runSession();
+      await sleep(5000);
+    }
+  }
+
+  if (!screen) {
+    /* nothing to render into */
+  } else if (reduced) {
+    renderStatic();
+    if (cursor) cursor.style.display = 'none';
+  } else {
+    // Only start once the terminal has actually been scrolled into view.
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          observer.disconnect();
+          loop().catch(renderStatic);
+        }
+      },
+      { threshold: 0.15 }
+    );
+    observer.observe(screen);
+  }
+
+  /* ------------------------------------------------------------- gauges -- */
+
+  const gauges = document.querySelectorAll<HTMLElement>('[data-gauge]');
+
+  function paint(gauge: HTMLElement, value: number) {
+    const fill = gauge.querySelector<HTMLElement>('.gauge__bar i');
+    const label = gauge.querySelector<HTMLElement>('.gauge__val');
+    if (fill) fill.style.width = `${value}%`;
+    if (label) label.textContent = `${value}%`;
+    gauge.classList.toggle('is-high', value > 80);
+  }
+
+  if (reduced) {
+    gauges.forEach((gauge) => paint(gauge, Number(gauge.dataset.min ?? 20)));
+  } else {
+    const tick = () =>
+      gauges.forEach((gauge) => {
+        const min = Number(gauge.dataset.min ?? 20);
+        const max = Number(gauge.dataset.max ?? 80);
+        paint(gauge, Math.round(min + Math.random() * (max - min)));
+      });
+
+    tick();
+    setInterval(() => {
+      if (!document.hidden) tick();
+    }, 2200);
+  }
+</script>

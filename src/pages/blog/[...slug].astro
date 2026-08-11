@@ -1,0 +1,371 @@
+---
+import { getCollection, render, type CollectionEntry } from 'astro:content';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import FormattedDate from '../../components/FormattedDate.astro';
+import { site } from '../../data/site';
+
+export async function getStaticPaths() {
+  const posts = (await getCollection('blog', ({ data }) => !data.draft)).sort(
+    (a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf()
+  );
+
+  return posts.map((post, index) => ({
+    params: { slug: post.id },
+    props: {
+      post,
+      prev: posts[index + 1] ?? null,
+      next: posts[index - 1] ?? null,
+    },
+  }));
+}
+
+interface Props {
+  post: CollectionEntry<'blog'>;
+  prev: CollectionEntry<'blog'> | null;
+  next: CollectionEntry<'blog'> | null;
+}
+
+const { post, prev, next } = Astro.props;
+const { Content, headings, remarkPluginFrontmatter } = await render(post);
+
+const readingTime: string | undefined = remarkPluginFrontmatter?.minutesRead;
+const url = `${site.url}/blog/${post.id}`;
+
+const description =
+  post.data.description || `${post.data.title} — a post by ${site.author.name}.`;
+
+const jsonLd = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'BlogPosting',
+    headline: post.data.title,
+    description,
+    url,
+    mainEntityOfPage: { '@type': 'WebPage', '@id': url },
+    datePublished: post.data.pubDate.toISOString(),
+    dateModified: (post.data.updatedDate ?? post.data.pubDate).toISOString(),
+    keywords: post.data.tags.join(', '),
+    image: post.data.heroImage ? new URL(post.data.heroImage, site.url).href : undefined,
+    author: { '@type': 'Person', name: site.author.name, url: site.url },
+    publisher: { '@type': 'Person', name: site.author.name, url: site.url },
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Home', item: site.url },
+      { '@type': 'ListItem', position: 2, name: 'Blog', item: `${site.url}/blog` },
+      { '@type': 'ListItem', position: 3, name: post.data.title, item: url },
+    ],
+  },
+];
+
+// Only h2/h3 make a useful table of contents.
+const toc = headings.filter((h) => h.depth === 2 || h.depth === 3);
+---
+
+<BaseLayout
+  title={post.data.title}
+  description={description}
+  image={post.data.heroImage}
+  type="article"
+  publishedTime={post.data.pubDate}
+  tags={post.data.tags}
+  jsonLd={jsonLd}
+>
+  <article class="post">
+    <header class="post__header">
+      <div class="wrap">
+        <nav class="crumbs" aria-label="Breadcrumb">
+          <a href="/">Home</a>
+          <span aria-hidden="true">/</span>
+          <a href="/blog">Blog</a>
+        </nav>
+
+        <h1 class="post__title">{post.data.title}</h1>
+
+        {post.data.description && <p class="lead post__desc prose">{post.data.description}</p>}
+
+        <div class="post__meta">
+          <FormattedDate date={post.data.pubDate} />
+          {readingTime && <><span aria-hidden="true">·</span><span>{readingTime}</span></>}
+          {
+            post.data.tags.length > 0 && (
+              <ul class="post__tags">
+                {post.data.tags.map((tag) => (
+                  <li class="chip">{tag}</li>
+                ))}
+              </ul>
+            )
+          }
+        </div>
+      </div>
+    </header>
+
+    {
+      post.data.heroImage && (
+        <div class="wrap">
+          <img
+            class="post__hero"
+            src={post.data.heroImage}
+            alt=""
+            width="1200"
+            height="630"
+            loading="eager"
+            decoding="async"
+          />
+        </div>
+      )
+    }
+
+    <div class="wrap post__layout">
+      {
+        toc.length > 2 && (
+          <aside class="toc no-print" aria-label="Table of contents">
+            <p class="toc__title">On this page</p>
+            <ul>
+              {toc.map((heading) => (
+                <li class:list={[`toc__depth-${heading.depth}`]}>
+                  <a href={`#${heading.slug}`}>{heading.text}</a>
+                </li>
+              ))}
+            </ul>
+          </aside>
+        )
+      }
+
+      <div class="content post__content">
+        <Content />
+      </div>
+    </div>
+
+    <footer class="wrap post__footer no-print">
+      <nav class="post-nav" aria-label="More posts">
+        {
+          prev ? (
+            <a class="post-nav__link post-nav__link--prev" href={`/blog/${prev.id}`}>
+              <span class="dim">← Older</span>
+              <strong>{prev.data.title}</strong>
+            </a>
+          ) : (
+            <span />
+          )
+        }
+        {
+          next && (
+            <a class="post-nav__link post-nav__link--next" href={`/blog/${next.id}`}>
+              <span class="dim">Newer →</span>
+              <strong>{next.data.title}</strong>
+            </a>
+          )
+        }
+      </nav>
+
+      <div class="post__cta card">
+        <div>
+          <h2 class="post__cta-title">Working on something similar?</h2>
+          <p class="muted">
+            I build cloud platforms, Kubernetes and CI/CD for a living. Happy to talk shop.
+          </p>
+        </div>
+        <a class="btn btn--primary" href="/contact">Get in touch</a>
+      </div>
+    </footer>
+  </article>
+</BaseLayout>
+
+<style>
+  .post__header {
+    padding-block: clamp(2rem, 5vw, 3.5rem) 1.75rem;
+  }
+
+  .crumbs {
+    display: flex;
+    gap: 0.5rem;
+    font-size: 0.8rem;
+    color: var(--fg-3);
+    margin-bottom: 1.25rem;
+  }
+
+  .crumbs a {
+    color: var(--fg-2);
+    text-decoration: none;
+  }
+
+  .crumbs a:hover {
+    color: var(--signal);
+  }
+
+  .post__title {
+    font-size: var(--step-3);
+    max-width: 30ch;
+  }
+
+  .post__desc {
+    margin-top: 1rem;
+  }
+
+  .post__meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.6rem;
+    margin-top: 1.25rem;
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--fg-3);
+  }
+
+  .post__tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .post__hero {
+    width: 100%;
+    max-height: 26rem;
+    object-fit: cover;
+    border-radius: var(--r);
+    border: 1px solid var(--line);
+    margin-bottom: 2.5rem;
+  }
+
+  .post__layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2.5rem;
+    align-items: start;
+  }
+
+  .post__layout:has(.toc) {
+    grid-template-columns: minmax(0, 1fr) 15rem;
+  }
+
+  .post__content {
+    max-width: var(--maxw-prose);
+    width: 100%;
+  }
+
+  .toc {
+    order: 2;
+    position: sticky;
+    top: 5.5rem;
+    border-left: 1px solid var(--line);
+    padding-left: 1.1rem;
+    font-size: 0.84rem;
+  }
+
+  .toc__title {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--fg-3);
+    margin-bottom: 0.7rem;
+  }
+
+  .toc ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+
+  .toc a {
+    color: var(--fg-2);
+    text-decoration: none;
+    line-height: 1.35;
+    display: block;
+  }
+
+  .toc a:hover {
+    color: var(--signal);
+  }
+
+  .toc__depth-3 {
+    padding-left: 0.8rem;
+    font-size: 0.8rem;
+  }
+
+  .post__footer {
+    margin-top: 3.5rem;
+  }
+
+  .post-nav {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    padding-top: 2rem;
+    border-top: 1px solid var(--line);
+  }
+
+  .post-nav__link {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    padding: 1rem 1.15rem;
+    border: 1px solid var(--line);
+    border-radius: var(--r);
+    background: var(--bg-1);
+    text-decoration: none;
+    color: var(--fg);
+    font-size: 0.9rem;
+    transition: border-color 0.2s var(--ease);
+  }
+
+  .post-nav__link:hover {
+    border-color: var(--signal);
+  }
+
+  .post-nav__link--next {
+    text-align: right;
+  }
+
+  .post-nav__link span {
+    font-size: 0.75rem;
+    font-family: var(--font-mono);
+  }
+
+  .post__cta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+    margin-top: 2rem;
+  }
+
+  .post__cta-title {
+    font-size: var(--step-1);
+    margin-bottom: 0.3rem;
+  }
+
+  @media (max-width: 62rem) {
+    .post__layout:has(.toc) {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .toc {
+      order: -1;
+      position: static;
+      border-left: 0;
+      border-top: 1px solid var(--line);
+      padding-left: 0;
+      padding-top: 1rem;
+    }
+  }
+
+  @media (max-width: 40rem) {
+    .post-nav {
+      grid-template-columns: 1fr;
+    }
+    .post-nav__link--next {
+      text-align: left;
+    }
+  }
+</style>

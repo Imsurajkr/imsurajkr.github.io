@@ -1,0 +1,220 @@
+---
+import ToolLayout from '../../layouts/ToolLayout.astro';
+---
+
+<ToolLayout slug="base64">
+  <div class="tool-grid">
+    <div class="tool-panel">
+      <div class="tool-head-row">
+        <p class="tool-panel__title">Input</p>
+        <div class="tool-actions">
+          <button type="button" class="btn btn--sm" id="sample-btn">Sample</button>
+          <button type="button" class="btn btn--sm" id="clear-btn">Clear</button>
+        </div>
+      </div>
+
+      <label class="visually-hidden" for="input">Text to encode or decode</label>
+      <textarea
+        id="input"
+        class="tool-textarea"
+        rows="10"
+        spellcheck="false"
+        autocomplete="off"
+        placeholder="Paste text or Base64 here…"></textarea>
+
+      <div class="tool-checks controls">
+        <label class="tool-check">
+          <input type="radio" name="mode" value="encode" checked /> Encode
+        </label>
+        <label class="tool-check">
+          <input type="radio" name="mode" value="decode" /> Decode
+        </label>
+        <label class="tool-check">
+          <input type="checkbox" id="urlsafe" /> URL-safe (<code>-_</code>, no padding)
+        </label>
+      </div>
+    </div>
+
+    <div class="tool-panel">
+      <div class="tool-head-row">
+        <p class="tool-panel__title">Output</p>
+        <div class="tool-actions">
+          <button type="button" class="btn btn--sm" id="copy-btn">Copy</button>
+          <button type="button" class="btn btn--sm" id="swap-btn">Send to input ⇅</button>
+        </div>
+      </div>
+
+      <pre id="output" class="tool-output" data-placeholder="Output appears here as you type."></pre>
+      <p id="status" class="tool-status" role="status"></p>
+
+      <dl class="kv stats" id="stats" hidden>
+        <div><dt>Input length</dt><dd id="stat-in">0</dd></div>
+        <div><dt>Output length</dt><dd id="stat-out">0</dd></div>
+        <div><dt>Size change</dt><dd id="stat-delta">—</dd></div>
+      </dl>
+    </div>
+  </div>
+
+  <div class="tool-panel">
+    <p class="tool-panel__title">Handy to know</p>
+    <ul class="notes muted">
+      <li>
+        Kubernetes stores secret values Base64-encoded. <code
+          >kubectl get secret x -o jsonpath='&#123;.data.password&#125;'</code
+        > gives you a string you can paste straight in here.
+      </li>
+      <li>Base64 is encoding, not encryption — it hides nothing from anyone.</li>
+      <li>
+        URL-safe Base64 swaps <code>+/</code> for <code>-_</code> and drops the <code>=</code>
+        padding, which is what JWTs use.
+      </li>
+    </ul>
+  </div>
+</ToolLayout>
+
+<style>
+  .controls {
+    margin-top: 1rem;
+  }
+
+  .stats {
+    margin-top: 1rem;
+  }
+
+  .notes {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    font-size: 0.88rem;
+    padding-left: 1.1rem;
+  }
+</style>
+
+<script>
+  const input = document.getElementById('input') as HTMLTextAreaElement | null;
+  const output = document.getElementById('output') as HTMLPreElement | null;
+  const status = document.getElementById('status') as HTMLParagraphElement | null;
+  const urlSafe = document.getElementById('urlsafe') as HTMLInputElement | null;
+  const stats = document.getElementById('stats') as HTMLElement | null;
+
+  const SAMPLE = 'Suraj Kumar — Platform & DevOps Engineer ✅';
+
+  const mode = (): 'encode' | 'decode' =>
+    (document.querySelector('input[name="mode"]:checked') as HTMLInputElement | null)?.value ===
+    'decode'
+      ? 'decode'
+      : 'encode';
+
+  /** UTF-8 safe: TextEncoder/TextDecoder rather than raw btoa on a JS string. */
+  function encode(text: string, safe: boolean): string {
+    const bytes = new TextEncoder().encode(text);
+    let binary = '';
+    bytes.forEach((byte) => {
+      binary += String.fromCharCode(byte);
+    });
+    const b64 = btoa(binary);
+    return safe ? b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '') : b64;
+  }
+
+  function decode(text: string): string {
+    let normalised = text.trim().replace(/\s+/g, '').replace(/-/g, '+').replace(/_/g, '/');
+    while (normalised.length % 4 !== 0) normalised += '=';
+
+    const binary = atob(normalised);
+    const bytes = Uint8Array.from(binary, (ch) => ch.charCodeAt(0));
+    return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+  }
+
+  function setStatus(message: string, kind: 'ok' | 'error' | '' = '') {
+    if (!status) return;
+    status.textContent = message;
+    status.className = `tool-status${kind ? ` tool-status--${kind}` : ''}`;
+  }
+
+  function run() {
+    if (!input || !output) return;
+    const text = input.value;
+
+    if (!text) {
+      output.textContent = '';
+      setStatus('');
+      if (stats) stats.hidden = true;
+      return;
+    }
+
+    try {
+      const result = mode() === 'encode' ? encode(text, urlSafe?.checked ?? false) : decode(text);
+      output.textContent = result;
+      setStatus(mode() === 'encode' ? 'Encoded.' : 'Decoded.', 'ok');
+
+      if (stats) {
+        stats.hidden = false;
+        (document.getElementById('stat-in') as HTMLElement).textContent =
+          `${text.length.toLocaleString()} chars`;
+        (document.getElementById('stat-out') as HTMLElement).textContent =
+          `${result.length.toLocaleString()} chars`;
+        const delta = text.length === 0 ? 0 : Math.round((result.length / text.length - 1) * 100);
+        (document.getElementById('stat-delta') as HTMLElement).textContent =
+          `${delta >= 0 ? '+' : ''}${delta}%`;
+      }
+    } catch {
+      output.textContent = '';
+      setStatus(
+        mode() === 'decode'
+          ? 'That is not valid Base64 (or it does not decode to UTF-8 text).'
+          : 'Could not encode that input.',
+        'error'
+      );
+      if (stats) stats.hidden = true;
+    }
+  }
+
+  input?.addEventListener('input', run);
+  urlSafe?.addEventListener('change', run);
+  document
+    .querySelectorAll('input[name="mode"]')
+    .forEach((radio) => radio.addEventListener('change', run));
+
+  document.getElementById('sample-btn')?.addEventListener('click', () => {
+    if (!input) return;
+    input.value = mode() === 'encode' ? SAMPLE : encode(SAMPLE, false);
+    run();
+  });
+
+  document.getElementById('clear-btn')?.addEventListener('click', () => {
+    if (input) input.value = '';
+    run();
+    input?.focus();
+  });
+
+  document.getElementById('swap-btn')?.addEventListener('click', () => {
+    if (!input || !output?.textContent) return;
+    input.value = output.textContent;
+    const decodeRadio = document.querySelector(
+      'input[name="mode"][value="decode"]'
+    ) as HTMLInputElement | null;
+    const encodeRadio = document.querySelector(
+      'input[name="mode"][value="encode"]'
+    ) as HTMLInputElement | null;
+    if (mode() === 'encode') {
+      if (decodeRadio) decodeRadio.checked = true;
+    } else if (encodeRadio) {
+      encodeRadio.checked = true;
+    }
+    run();
+  });
+
+  document.getElementById('copy-btn')?.addEventListener('click', async (event) => {
+    const button = event.currentTarget as HTMLButtonElement;
+    const original = button.textContent;
+    try {
+      await navigator.clipboard.writeText(output?.textContent ?? '');
+      button.textContent = 'Copied ✓';
+    } catch {
+      button.textContent = 'Copy failed';
+    }
+    setTimeout(() => {
+      button.textContent = original;
+    }, 1500);
+  });
+</script>

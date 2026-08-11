@@ -1,0 +1,154 @@
+---
+import { getCollection } from 'astro:content';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import PageHeader from '../../components/PageHeader.astro';
+import PostCard from '../../components/PostCard.astro';
+import { site } from '../../data/site';
+
+const posts = (await getCollection('blog', ({ data }) => !data.draft)).sort(
+  (a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf()
+);
+
+const allTags = [...new Set(posts.flatMap((p) => p.data.tags))].sort((a, b) =>
+  a.localeCompare(b)
+);
+
+const description =
+  'Notes on DevOps, Kubernetes, networking and security by Suraj Kumar — hands-on write-ups on Docker, Portainer, hping3, NAT, Vim, Capistrano and system monitoring.';
+
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'Blog',
+  name: `${site.shortTitle} — Blog`,
+  url: `${site.url}/blog`,
+  description,
+  author: { '@type': 'Person', name: site.author.name, url: site.url },
+  blogPost: posts.map((post) => ({
+    '@type': 'BlogPosting',
+    headline: post.data.title,
+    url: `${site.url}/blog/${post.id}`,
+    datePublished: post.data.pubDate.toISOString(),
+    keywords: post.data.tags.join(', '),
+  })),
+};
+---
+
+<BaseLayout title="Blog" description={description} jsonLd={jsonLd}>
+  <PageHeader
+    eyebrow="Writing"
+    title="Blog"
+    lead="Hands-on notes from the terminal — networking, containers, security tooling and the occasional editor rabbit hole."
+  >
+    <div class="filters no-print" role="group" aria-label="Filter posts by tag">
+      <button class="filter is-active" type="button" data-tag="*">
+        All <span class="filter__count">{posts.length}</span>
+      </button>
+      {
+        allTags.map((tag) => (
+          <button class="filter" type="button" data-tag={tag}>
+            {tag}
+          </button>
+        ))
+      }
+    </div>
+  </PageHeader>
+
+  <section class="section">
+    <div class="wrap">
+      <div class="posts" id="posts">
+        {
+          posts.map((post) => (
+            <div class="posts__item" data-tags={post.data.tags.join('|')}>
+              <PostCard
+                href={`/blog/${post.id}`}
+                title={post.data.title}
+                description={post.data.description}
+                pubDate={post.data.pubDate}
+                heroImage={post.data.heroImage}
+                tags={post.data.tags}
+              />
+            </div>
+          ))
+        }
+      </div>
+
+      <p class="empty muted" id="posts-empty" hidden>No posts match that tag.</p>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-top: 1.5rem;
+  }
+
+  .filter {
+    padding: 0.3rem 0.7rem;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: var(--bg);
+    color: var(--fg-2);
+    font-family: var(--font-mono);
+    font-size: 0.76rem;
+    cursor: pointer;
+    transition: color 0.18s var(--ease), border-color 0.18s var(--ease),
+      background 0.18s var(--ease);
+  }
+
+  .filter:hover {
+    color: var(--fg);
+    border-color: var(--line-2);
+  }
+
+  .filter.is-active {
+    background: var(--signal-soft);
+    border-color: color-mix(in srgb, var(--signal) 40%, transparent);
+    color: var(--signal);
+  }
+
+  .filter__count {
+    opacity: 0.6;
+  }
+
+  .posts {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 20rem), 1fr));
+    gap: 1.25rem;
+  }
+
+  .posts__item[hidden] {
+    display: none;
+  }
+
+  .empty {
+    text-align: center;
+    padding: 3rem 0;
+  }
+</style>
+
+<script>
+  const filters = document.querySelectorAll<HTMLButtonElement>('.filter');
+  const items = document.querySelectorAll<HTMLElement>('.posts__item');
+  const empty = document.getElementById('posts-empty');
+
+  filters.forEach((button) => {
+    button.addEventListener('click', () => {
+      const tag = button.dataset.tag ?? '*';
+
+      filters.forEach((b) => b.classList.toggle('is-active', b === button));
+
+      let visible = 0;
+      items.forEach((item) => {
+        const tags = (item.dataset.tags ?? '').split('|');
+        const show = tag === '*' || tags.includes(tag);
+        item.hidden = !show;
+        if (show) visible++;
+      });
+
+      if (empty) empty.hidden = visible > 0;
+    });
+  });
+</script>

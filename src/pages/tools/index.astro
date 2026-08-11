@@ -1,0 +1,174 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import PageHeader from '../../components/PageHeader.astro';
+import ToolIcon from '../../components/ToolIcon.astro';
+import { site } from '../../data/site';
+import { tools } from '../../data/tools';
+
+const description =
+  'Free, fast, browser-only DevOps tools by Suraj Kumar — visual subnet calculator, Base64 encoder, JWT decoder, YAML/JSON converter, cron explainer and secure UUID/password generator. No sign-up, no uploads.';
+
+const categories = [...new Set(tools.map((t) => t.category))];
+
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'CollectionPage',
+  name: 'DevOps Tools',
+  url: `${site.url}/tools`,
+  description,
+  mainEntity: {
+    '@type': 'ItemList',
+    numberOfItems: tools.length,
+    itemListElement: tools.map((tool, index) => ({
+      '@type': 'ListItem',
+      position: index + 1,
+      name: tool.name,
+      description: tool.tagline,
+      url: `${site.url}/tools/${tool.slug}`,
+    })),
+  },
+};
+---
+
+<BaseLayout title="DevOps Tools" description={description} jsonLd={jsonLd}>
+  <PageHeader
+    eyebrow="Tools"
+    title="DevOps tools that run in your browser"
+    lead="Small utilities I got tired of searching for. Every one of them is pure client-side JavaScript — no sign-up, no backend, and nothing you paste ever leaves your machine."
+  >
+    <div class="cats">
+      {categories.map((cat) => <span class="chip">{cat}</span>)}
+    </div>
+  </PageHeader>
+
+  <section class="section">
+    <div class="wrap">
+      <div class="tools-grid">
+        {
+          tools.map((tool) => (
+            <a class="tool-card" href={`/tools/${tool.slug}`}>
+              <span class="tool-card__icon" aria-hidden="true">
+                <ToolIcon name={tool.icon} />
+              </span>
+
+              <div class="tool-card__body">
+                <span class="tag tool-card__cat">{tool.category}</span>
+                <h2 class="tool-card__name">{tool.name}</h2>
+                <p class="tool-card__tagline">{tool.tagline}</p>
+                <p class="tool-card__desc muted">{tool.description}</p>
+              </div>
+
+              <span class="tool-card__go" aria-hidden="true">Open →</span>
+            </a>
+          ))
+        }
+      </div>
+
+      <div class="note card">
+        <h2 class="note__title">Why these run locally</h2>
+        <p class="muted">
+          Plenty of online converters and decoders quietly ship your input to a server. That is a
+          bad habit to build when the thing in your clipboard is a Kubernetes secret or a production
+          JWT. Everything here is implemented in the JavaScript that ships with the page: you can
+          read the source, disconnect your network, and the tools still work.
+        </p>
+        <p class="muted">
+          Ideas for tools worth adding? <a href="/contact">Tell me</a> — the list is deliberately
+          easy to extend.
+        </p>
+      </div>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .cats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-top: 1.25rem;
+  }
+
+  .tools-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 21rem), 1fr));
+    gap: 1rem;
+  }
+
+  .tool-card {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1.5rem;
+    background: var(--bg-1);
+    border: 1px solid var(--line);
+    border-radius: var(--r);
+    text-decoration: none;
+    color: inherit;
+    transition: border-color 0.2s var(--ease), transform 0.2s var(--ease);
+  }
+
+  .tool-card:hover {
+    border-color: var(--signal);
+    transform: translateY(-2px);
+  }
+
+  .tool-card__icon {
+    display: grid;
+    place-items: center;
+    width: 2.6rem;
+    height: 2.6rem;
+    border-radius: var(--r);
+    background: var(--signal-soft);
+    color: var(--signal);
+  }
+
+  .tool-card__cat {
+    font-size: 0.68rem;
+  }
+
+  .tool-card__name {
+    font-size: 1.1rem;
+    margin-top: 0.5rem;
+  }
+
+  .tool-card:hover .tool-card__name {
+    color: var(--signal);
+  }
+
+  .tool-card__tagline {
+    font-size: 0.88rem;
+    color: var(--signal);
+    margin-top: 0.2rem;
+  }
+
+  .tool-card__desc {
+    font-size: 0.88rem;
+    margin-top: 0.6rem;
+  }
+
+  .tool-card__go {
+    margin-top: auto;
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--fg-3);
+  }
+
+  .tool-card:hover .tool-card__go {
+    color: var(--signal);
+  }
+
+  .note {
+    margin-top: 2rem;
+    max-width: var(--maxw-prose);
+  }
+
+  .note__title {
+    font-size: var(--step-1);
+    margin-bottom: 0.7rem;
+  }
+
+  .note p + p {
+    margin-top: 0.8rem;
+  }
+</style>

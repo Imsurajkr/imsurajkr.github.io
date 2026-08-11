@@ -1,0 +1,285 @@
+---
+import ToolLayout from '../../layouts/ToolLayout.astro';
+---
+
+<ToolLayout slug="generators">
+  <div class="tool-grid">
+    <!-- UUIDs -->
+    <div class="tool-panel">
+      <div class="tool-head-row">
+        <p class="tool-panel__title">UUID v4</p>
+        <div class="tool-actions">
+          <button type="button" class="btn btn--sm" id="uuid-gen">Generate</button>
+          <button type="button" class="btn btn--sm copy" data-target="uuid-out">Copy</button>
+        </div>
+      </div>
+
+      <div class="tool-row">
+        <div class="tool-field tool-field--grow">
+          <label for="uuid-count">How many</label>
+          <input id="uuid-count" class="tool-input" type="number" value="5" min="1" max="100" />
+        </div>
+        <label class="tool-check pad">
+          <input type="checkbox" id="uuid-upper" /> Uppercase
+        </label>
+        <label class="tool-check pad">
+          <input type="checkbox" id="uuid-braces" /> Braces
+        </label>
+      </div>
+
+      <pre id="uuid-out" class="tool-output out" data-placeholder="Press Generate."></pre>
+    </div>
+
+    <!-- Passwords -->
+    <div class="tool-panel">
+      <div class="tool-head-row">
+        <p class="tool-panel__title">Password / API key</p>
+        <div class="tool-actions">
+          <button type="button" class="btn btn--sm" id="pw-gen">Generate</button>
+          <button type="button" class="btn btn--sm copy" data-target="pw-out">Copy</button>
+        </div>
+      </div>
+
+      <div class="tool-row">
+        <div class="tool-field tool-field--grow">
+          <label for="pw-length">Length: <span id="pw-length-value">24</span></label>
+          <input id="pw-length" type="range" min="8" max="128" value="24" class="range" />
+        </div>
+        <div class="tool-field">
+          <label for="pw-count">Count</label>
+          <input id="pw-count" class="tool-input" type="number" value="5" min="1" max="50" />
+        </div>
+      </div>
+
+      <div class="tool-checks">
+        <label class="tool-check"><input type="checkbox" id="pw-lower" checked /> a-z</label>
+        <label class="tool-check"><input type="checkbox" id="pw-upper" checked /> A-Z</label>
+        <label class="tool-check"><input type="checkbox" id="pw-digits" checked /> 0-9</label>
+        <label class="tool-check"><input type="checkbox" id="pw-symbols" checked /> symbols</label>
+        <label class="tool-check">
+          <input type="checkbox" id="pw-unambiguous" /> avoid look-alikes (0/O, 1/l/I)
+        </label>
+      </div>
+
+      <pre id="pw-out" class="tool-output out" data-placeholder="Press Generate."></pre>
+
+      <div class="strength">
+        <div class="strength__bar"><span id="strength-fill"></span></div>
+        <p class="strength__text dim" id="strength-text">—</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="tool-panel">
+    <p class="tool-panel__title">How these are generated</p>
+    <ul class="notes muted">
+      <li>
+        Randomness comes from <code>crypto.getRandomValues()</code> — the browser's CSPRNG — not
+        <code>Math.random()</code>, which is not safe for secrets.
+      </li>
+      <li>
+        Character selection uses rejection sampling, so every character in the chosen alphabet is
+        equally likely. Naive modulo would bias the first few characters.
+      </li>
+      <li>
+        UUIDs follow RFC 4122 version 4: 122 random bits with the version and variant fields set.
+      </li>
+      <li>Values are generated on your machine and never transmitted.</li>
+    </ul>
+  </div>
+</ToolLayout>
+
+<style>
+  .pad {
+    padding-bottom: 0.6rem;
+  }
+
+  .out {
+    margin-top: 1rem;
+    min-height: 8rem;
+  }
+
+  .range {
+    width: 100%;
+    accent-color: var(--signal);
+  }
+
+  .strength {
+    margin-top: 1rem;
+  }
+
+  .strength__bar {
+    height: 5px;
+    border-radius: 999px;
+    background: var(--bg-2);
+    overflow: hidden;
+  }
+
+  .strength__bar span {
+    display: block;
+    height: 100%;
+    width: 0;
+    background: var(--signal);
+    transition: width 0.25s var(--ease), background 0.25s var(--ease);
+  }
+
+  .strength__text {
+    font-size: 0.78rem;
+    margin-top: 0.4rem;
+    font-family: var(--font-mono);
+  }
+
+  .notes {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    font-size: 0.88rem;
+    padding-left: 1.1rem;
+  }
+</style>
+
+<script>
+  const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T | null;
+
+  // ------------------------------------------------------------------ UUIDs
+
+  function uuidV4(): string {
+    if (typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+
+    const bytes = crypto.getRandomValues(new Uint8Array(16));
+    bytes[6] = (bytes[6] & 0x0f) | 0x40; // version 4
+    bytes[8] = (bytes[8] & 0x3f) | 0x80; // variant 10xx
+    const hex = [...bytes].map((b) => b.toString(16).padStart(2, '0')).join('');
+    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+  }
+
+  function generateUuids() {
+    const count = Math.min(100, Math.max(1, Number($<HTMLInputElement>('uuid-count')?.value) || 1));
+    const upper = $<HTMLInputElement>('uuid-upper')?.checked ?? false;
+    const braces = $<HTMLInputElement>('uuid-braces')?.checked ?? false;
+
+    const values = Array.from({ length: count }, () => {
+      let value = uuidV4();
+      if (upper) value = value.toUpperCase();
+      if (braces) value = `{${value}}`;
+      return value;
+    });
+
+    const out = $('uuid-out');
+    if (out) out.textContent = values.join('\n');
+  }
+
+  // -------------------------------------------------------------- Passwords
+
+  const SETS = {
+    lower: 'abcdefghijklmnopqrstuvwxyz',
+    upper: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
+    digits: '0123456789',
+    symbols: '!@#$%^&*()-_=+[]{};:,.?/',
+  };
+
+  const AMBIGUOUS = /[0O1lI|`'"~,;:.]/g;
+
+  /** Uniform index in [0, max) via rejection sampling — no modulo bias. */
+  function randomIndex(max: number): number {
+    const limit = Math.floor(0xffffffff / max) * max;
+    const buffer = new Uint32Array(1);
+    let value: number;
+    do {
+      crypto.getRandomValues(buffer);
+      value = buffer[0];
+    } while (value >= limit);
+    return value % max;
+  }
+
+  function buildAlphabet(): string {
+    const unambiguous = $<HTMLInputElement>('pw-unambiguous')?.checked ?? false;
+    let alphabet = '';
+    if ($<HTMLInputElement>('pw-lower')?.checked) alphabet += SETS.lower;
+    if ($<HTMLInputElement>('pw-upper')?.checked) alphabet += SETS.upper;
+    if ($<HTMLInputElement>('pw-digits')?.checked) alphabet += SETS.digits;
+    if ($<HTMLInputElement>('pw-symbols')?.checked) alphabet += SETS.symbols;
+    if (unambiguous) alphabet = alphabet.replace(AMBIGUOUS, '');
+    return alphabet;
+  }
+
+  function generatePasswords() {
+    const out = $('pw-out');
+    const alphabet = buildAlphabet();
+
+    if (!alphabet) {
+      if (out) out.textContent = 'Select at least one character set.';
+      updateStrength(0, 0);
+      return;
+    }
+
+    const length = Number($<HTMLInputElement>('pw-length')?.value) || 24;
+    const count = Math.min(50, Math.max(1, Number($<HTMLInputElement>('pw-count')?.value) || 1));
+
+    const values = Array.from({ length: count }, () =>
+      Array.from({ length }, () => alphabet[randomIndex(alphabet.length)]).join('')
+    );
+
+    if (out) out.textContent = values.join('\n');
+    updateStrength(length, alphabet.length);
+  }
+
+  function updateStrength(length: number, alphabetSize: number) {
+    const bits = length && alphabetSize ? Math.round(length * Math.log2(alphabetSize)) : 0;
+    const fill = $('strength-fill');
+    const text = $('strength-text');
+
+    const pct = Math.min(100, (bits / 128) * 100);
+    if (fill) {
+      fill.style.width = `${pct}%`;
+      fill.style.background =
+        bits >= 100 ? 'var(--signal)' : bits >= 60 ? 'var(--guard)' : 'var(--alert)';
+    }
+
+    if (text) {
+      text.textContent = bits
+        ? `${bits} bits of entropy · alphabet of ${alphabetSize} · ${
+            bits >= 100 ? 'excellent' : bits >= 60 ? 'adequate' : 'weak — increase length'
+          }`
+        : '—';
+    }
+  }
+
+  // ------------------------------------------------------------------ wiring
+
+  $('uuid-gen')?.addEventListener('click', generateUuids);
+  ['uuid-upper', 'uuid-braces'].forEach((id) =>
+    $(id)?.addEventListener('change', generateUuids)
+  );
+
+  $('pw-gen')?.addEventListener('click', generatePasswords);
+  ['pw-lower', 'pw-upper', 'pw-digits', 'pw-symbols', 'pw-unambiguous'].forEach((id) =>
+    $(id)?.addEventListener('change', generatePasswords)
+  );
+
+  const lengthSlider = $<HTMLInputElement>('pw-length');
+  lengthSlider?.addEventListener('input', () => {
+    const label = $('pw-length-value');
+    if (label) label.textContent = lengthSlider.value;
+    generatePasswords();
+  });
+
+  document.querySelectorAll<HTMLButtonElement>('.copy').forEach((button) => {
+    button.addEventListener('click', async () => {
+      const target = document.getElementById(button.dataset.target ?? '');
+      const original = button.textContent;
+      try {
+        await navigator.clipboard.writeText(target?.textContent ?? '');
+        button.textContent = 'Copied ✓';
+      } catch {
+        button.textContent = 'Copy failed';
+      }
+      setTimeout(() => {
+        button.textContent = original;
+      }, 1500);
+    });
+  });
+
+  generateUuids();
+  generatePasswords();
+</script>

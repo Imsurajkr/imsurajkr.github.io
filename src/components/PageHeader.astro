@@ -1,0 +1,99 @@
+---
+export interface Props {
+  eyebrow?: string;
+  title: string;
+  lead?: string;
+  index?: string;
+}
+
+const { eyebrow, title, lead, index } = Astro.props;
+---
+
+<section class="ph">
+  <div class="ph__grid" aria-hidden="true"></div>
+  <div class="wrap ph__inner">
+    {
+      eyebrow && (
+        <div class="ph__rule" data-reveal>
+          {index && <span class="ph__index">{index}</span>}
+          <span class="ph__label">{eyebrow}</span>
+          <span class="ph__line" aria-hidden="true" />
+        </div>
+      )
+    }
+
+    <h1 class="ph__title" data-reveal style="--reveal-delay: 60ms">{title}</h1>
+    {lead && <p class="lead prose ph__lead" data-reveal style="--reveal-delay: 110ms">{lead}</p>}
+    <slot />
+  </div>
+</section>
+
+<style>
+  .ph {
+    position: relative;
+    padding-block: clamp(2.25rem, 5vw, 3.75rem) clamp(1.5rem, 3vw, 2.5rem);
+    border-bottom: 1px solid var(--line);
+    background: var(--bg-1);
+    overflow: hidden;
+  }
+
+  .ph__grid {
+    position: absolute;
+    inset: 0;
+    background-image: linear-gradient(var(--grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size: 52px 52px;
+    mask-image: radial-gradient(ellipse 60% 90% at 15% 0%, #000 10%, transparent 70%);
+    -webkit-mask-image: radial-gradient(ellipse 60% 90% at 15% 0%, #000 10%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .ph__inner {
+    position: relative;
+  }
+
+  .ph__rule {
+    display: flex;
+    align-items: center;
+    gap: var(--s-2);
+    margin-bottom: var(--s-4);
+  }
+
+  .ph__index {
+    font-family: var(--font-mono);
+    font-size: var(--step--2);
+    font-weight: 600;
+    color: var(--signal);
+    padding: 0.1rem 0.4rem;
+    border: 1px solid color-mix(in srgb, var(--signal) 32%, transparent);
+    background: var(--signal-soft);
+    border-radius: var(--r-sm);
+  }
+
+  .ph__label {
+    font-family: var(--font-mono);
+    font-size: var(--step--2);
+    font-weight: 500;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--fg-3);
+    white-space: nowrap;
+  }
+
+  .ph__line {
+    flex: 1;
+    height: 1px;
+    min-width: var(--s-4);
+    background: linear-gradient(to right, var(--line-2), transparent);
+  }
+
+  .ph__title {
+    font-size: var(--step-4);
+    letter-spacing: -0.03em;
+    max-width: 20ch;
+  }
+
+  .ph__lead {
+    margin-top: var(--s-4);
+  }
+</style>

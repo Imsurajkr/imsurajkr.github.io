@@ -1,0 +1,314 @@
+---
+import ToolLayout from '../../layouts/ToolLayout.astro';
+---
+
+<ToolLayout slug="jwt-decoder">
+  <div class="tool-panel warn-panel">
+    <p class="warn">
+      <strong>Decode only.</strong> This tool reads a token's contents; it does not verify the
+      signature, so it cannot tell you whether a token is authentic. Nothing you paste is sent
+      anywhere — but treat production tokens carefully wherever you paste them.
+    </p>
+  </div>
+
+  <div class="tool-panel">
+    <div class="tool-head-row">
+      <p class="tool-panel__title">Token</p>
+      <div class="tool-actions">
+        <button type="button" class="btn btn--sm" id="sample-btn">Load sample</button>
+        <button type="button" class="btn btn--sm" id="clear-btn">Clear</button>
+      </div>
+    </div>
+
+    <label class="visually-hidden" for="token">JSON Web Token</label>
+    <textarea
+      id="token"
+      class="tool-textarea"
+      rows="5"
+      spellcheck="false"
+      autocomplete="off"
+      placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.signature"
+    ></textarea>
+
+    <p id="status" class="tool-status" role="status"></p>
+
+    <div id="parts" class="parts" hidden>
+      <span class="part part--header">header</span>
+      <span class="part part--payload">payload</span>
+      <span class="part part--sig">signature</span>
+    </div>
+  </div>
+
+  <div id="results" hidden>
+    <div class="tool-panel" id="claims-panel">
+      <p class="tool-panel__title">Registered claims</p>
+      <dl class="kv" id="claims"></dl>
+    </div>
+
+    <div class="tool-grid">
+      <div class="tool-panel">
+        <div class="tool-head-row">
+          <p class="tool-panel__title">Header</p>
+          <button type="button" class="btn btn--sm copy" data-target="header-out">Copy</button>
+        </div>
+        <pre id="header-out" class="tool-output"></pre>
+      </div>
+
+      <div class="tool-panel">
+        <div class="tool-head-row">
+          <p class="tool-panel__title">Payload</p>
+          <button type="button" class="btn btn--sm copy" data-target="payload-out">Copy</button>
+        </div>
+        <pre id="payload-out" class="tool-output"></pre>
+      </div>
+    </div>
+  </div>
+</ToolLayout>
+
+<style>
+  .warn-panel {
+    border-color: color-mix(in srgb, var(--guard) 40%, var(--line));
+  }
+
+  .warn {
+    font-size: 0.88rem;
+    color: var(--fg-2);
+  }
+
+  .parts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-top: 0.9rem;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+  }
+
+  .part {
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+  }
+
+  .part--header {
+    background: color-mix(in srgb, var(--signal) 20%, transparent);
+    color: var(--signal);
+  }
+
+  .part--payload {
+    background: var(--signal-soft);
+    color: var(--signal);
+  }
+
+  .part--sig {
+    background: color-mix(in srgb, var(--guard) 20%, transparent);
+    color: var(--guard);
+  }
+
+  .exp-ok {
+    color: var(--signal);
+  }
+
+  .exp-bad {
+    color: var(--alert);
+  }
+</style>
+
+<script>
+  const tokenInput = document.getElementById('token') as HTMLTextAreaElement | null;
+  const status = document.getElementById('status') as HTMLElement | null;
+  const results = document.getElementById('results') as HTMLElement | null;
+  const parts = document.getElementById('parts') as HTMLElement | null;
+  const claimsList = document.getElementById('claims') as HTMLElement | null;
+  const claimsPanel = document.getElementById('claims-panel') as HTMLElement | null;
+
+  // A throwaway HS256 token with a fake signature — for demonstration only.
+  const SAMPLE = [
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6ImRlbW8ta2V5In0',
+    'eyJzdWIiOiJ1c2VyLTQyIiwibmFtZSI6IlN1cmFqIEt1bWFyIiwicm9sZXMiOlsicGxhdGZvcm0tYWRtaW4iXSwiaXNzIjoiaHR0cHM6Ly9pZHAuZXhhbXBsZS5jb20iLCJhdWQiOiJrOHMtYXBpIiwiaWF0IjoxNzAwMDAwMDAwLCJleHAiOjE3MDAwMDM2MDB9',
+    'ZmFrZS1zaWduYXR1cmUtZm9yLWRlbW8tb25seQ',
+  ].join('.');
+
+  const CLAIM_NAMES: Record<string, string> = {
+    iss: 'Issuer (iss)',
+    sub: 'Subject (sub)',
+    aud: 'Audience (aud)',
+    exp: 'Expires (exp)',
+    nbf: 'Not before (nbf)',
+    iat: 'Issued at (iat)',
+    jti: 'JWT ID (jti)',
+    azp: 'Authorised party (azp)',
+    scope: 'Scope',
+    email: 'Email',
+    name: 'Name',
+  };
+
+  function b64urlDecode(segment: string): string {
+    let s = segment.replace(/-/g, '+').replace(/_/g, '/');
+    while (s.length % 4 !== 0) s += '=';
+    const binary = atob(s);
+    const bytes = Uint8Array.from(binary, (ch) => ch.charCodeAt(0));
+    return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+  }
+
+  function setStatus(message: string, kind: 'ok' | 'error' | '' = '') {
+    if (!status) return;
+    status.textContent = message;
+    status.className = `tool-status${kind ? ` tool-status--${kind}` : ''}`;
+  }
+
+  const fmtTime = (seconds: number) => {
+    const date = new Date(seconds * 1000);
+    return `${date.toISOString().replace('.000', '')} (${date.toLocaleString()})`;
+  };
+
+  function relative(seconds: number): string {
+    const diff = seconds * 1000 - Date.now();
+    const abs = Math.abs(diff);
+    const units: [number, string][] = [
+      [86400000, 'day'],
+      [3600000, 'hour'],
+      [60000, 'minute'],
+      [1000, 'second'],
+    ];
+    for (const [ms, label] of units) {
+      if (abs >= ms) {
+        const value = Math.round(abs / ms);
+        return diff > 0
+          ? `in ${value} ${label}${value === 1 ? '' : 's'}`
+          : `${value} ${label}${value === 1 ? '' : 's'} ago`;
+      }
+    }
+    return 'just now';
+  }
+
+  function addRow(term: string, value: string, className = '') {
+    if (!claimsList) return;
+    const wrapper = document.createElement('div');
+    const dt = document.createElement('dt');
+    dt.textContent = term;
+    const dd = document.createElement('dd');
+    dd.textContent = value;
+    if (className) dd.className = className;
+    wrapper.append(dt, dd);
+    claimsList.appendChild(wrapper);
+  }
+
+  function run() {
+    const raw = tokenInput?.value.trim() ?? '';
+
+    if (!raw) {
+      setStatus('');
+      if (results) results.hidden = true;
+      if (parts) parts.hidden = true;
+      return;
+    }
+
+    const segments = raw.split('.');
+    if (segments.length < 2 || segments.length > 3) {
+      setStatus('A JWT has three dot-separated parts: header.payload.signature.', 'error');
+      if (results) results.hidden = true;
+      if (parts) parts.hidden = true;
+      return;
+    }
+
+    let header: Record<string, unknown>;
+    let payload: Record<string, unknown>;
+
+    try {
+      header = JSON.parse(b64urlDecode(segments[0]));
+      payload = JSON.parse(b64urlDecode(segments[1]));
+    } catch {
+      setStatus('Could not decode that token — the header or payload is not valid Base64url JSON.', 'error');
+      if (results) results.hidden = true;
+      if (parts) parts.hidden = true;
+      return;
+    }
+
+    (document.getElementById('header-out') as HTMLElement).textContent = JSON.stringify(
+      header,
+      null,
+      2
+    );
+    (document.getElementById('payload-out') as HTMLElement).textContent = JSON.stringify(
+      payload,
+      null,
+      2
+    );
+
+    // Claims summary
+    if (claimsList) claimsList.replaceChildren();
+
+    const alg = typeof header.alg === 'string' ? header.alg : 'unknown';
+    addRow('Algorithm (alg)', alg + (alg === 'none' ? '  ⚠ unsigned token' : ''));
+    if (header.kid) addRow('Key ID (kid)', String(header.kid));
+    if (header.typ) addRow('Type (typ)', String(header.typ));
+
+    for (const [key, label] of Object.entries(CLAIM_NAMES)) {
+      const value = payload[key];
+      if (value === undefined) continue;
+
+      if ((key === 'exp' || key === 'iat' || key === 'nbf') && typeof value === 'number') {
+        addRow(label, `${fmtTime(value)} — ${relative(value)}`);
+      } else {
+        addRow(label, Array.isArray(value) ? value.join(', ') : String(value));
+      }
+    }
+
+    const now = Date.now() / 1000;
+    const exp = typeof payload.exp === 'number' ? payload.exp : null;
+    const nbf = typeof payload.nbf === 'number' ? payload.nbf : null;
+
+    if (exp !== null) {
+      const expired = exp < now;
+      addRow('Status', expired ? '✗ Expired' : '✓ Not expired', expired ? 'exp-bad' : 'exp-ok');
+      setStatus(
+        expired ? `Decoded. Token expired ${relative(exp)}.` : `Decoded. Valid for ${relative(exp).replace('in ', '')}.`,
+        expired ? 'error' : 'ok'
+      );
+    } else {
+      addRow('Status', 'No exp claim — token does not expire', 'exp-bad');
+      setStatus('Decoded. This token has no expiry claim.', 'ok');
+    }
+
+    if (nbf !== null && nbf > now) {
+      addRow('Warning', `Not valid until ${relative(nbf)}`, 'exp-bad');
+    }
+
+    if (segments.length === 2 || !segments[2]) {
+      addRow('Signature', 'Missing — this token is unsigned', 'exp-bad');
+    }
+
+    if (claimsPanel) claimsPanel.hidden = false;
+    if (results) results.hidden = false;
+    if (parts) parts.hidden = false;
+  }
+
+  tokenInput?.addEventListener('input', run);
+
+  document.getElementById('sample-btn')?.addEventListener('click', () => {
+    if (tokenInput) tokenInput.value = SAMPLE;
+    run();
+  });
+
+  document.getElementById('clear-btn')?.addEventListener('click', () => {
+    if (tokenInput) tokenInput.value = '';
+    run();
+    tokenInput?.focus();
+  });
+
+  document.querySelectorAll<HTMLButtonElement>('.copy').forEach((button) => {
+    button.addEventListener('click', async () => {
+      const target = document.getElementById(button.dataset.target ?? '');
+      const original = button.textContent;
+      try {
+        await navigator.clipboard.writeText(target?.textContent ?? '');
+        button.textContent = 'Copied ✓';
+      } catch {
+        button.textContent = 'Copy failed';
+      }
+      setTimeout(() => {
+        button.textContent = original;
+      }, 1500);
+    });
+  });
+</script>

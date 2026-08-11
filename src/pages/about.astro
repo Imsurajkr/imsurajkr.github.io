@@ -1,0 +1,301 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import PageHeader from '../components/PageHeader.astro';
+import { site } from '../data/site';
+import { certifications, profile } from '../data/resume';
+
+const title = 'About';
+const description =
+  'About Suraj Kumar — Senior Platform & DevOps Engineer in Gurugram, India. 7+ years across AWS, GCP, Azure and Kubernetes, building self-service platforms, IaC and DevSecOps guardrails.';
+
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'AboutPage',
+  name: 'About Suraj Kumar',
+  url: `${site.url}/about`,
+  description,
+  mainEntity: {
+    '@type': 'Person',
+    name: site.author.name,
+    jobTitle: profile.headline,
+    url: site.url,
+    sameAs: [site.social.github, site.social.linkedin],
+  },
+};
+
+const principles = [
+  {
+    title: 'Platforms, not ticket queues',
+    body: 'The best platform team is the one product engineers rarely need to talk to. I build paved roads — golden Terraform modules, self-service APIs, sane defaults — so teams ship without waiting on me.',
+  },
+  {
+    title: 'Security is a default, not a gate',
+    body: 'CKS-certified and coming from a regulated bank: guardrails belong in the pipeline and the cluster, not in a review meeting at the end. Visible CVE posture beats a quarterly PDF scan report.',
+  },
+  {
+    title: 'Boring infrastructure is a feature',
+    body: 'Zero-downtime Blue-Green releases, tested backups, alerting that fires before customers notice. Reliability work is unglamorous and it is the whole job.',
+  },
+  {
+    title: 'Cost is an engineering metric',
+    body: 'FinOps is not a spreadsheet exercise. Right-sizing, lifecycle policies and killing idle resources are design decisions that belong next to latency and availability.',
+  },
+];
+
+const timeline = [
+  { year: '2020', text: 'B.Tech in Computer Science Engineering, JECRC University, Jaipur.' },
+  { year: '2020', text: 'First DevOps role at RoboMQ — Docker, GCP and AWS EKS.' },
+  {
+    year: '2020–2024',
+    text: 'Lead DevOps Engineer at FiftyFive Technologies. Multi-cloud platforms, Terraform, Kubeflow, and leading a DevOps team across concurrent client engagements.',
+  },
+  {
+    year: '2024–now',
+    text: 'DevOps Engineer 2 at Kotak Mahindra Bank — Kong, Istio, Blue-Green delivery and CVE visibility for regulated banking workloads.',
+  },
+];
+---
+
+<BaseLayout title={title} description={description} jsonLd={jsonLd}>
+  <PageHeader
+    eyebrow="About us"
+    title="About Suraj Kumar"
+    lead="Senior Platform & DevOps Engineer based in Gurugram, India — building cloud platforms that engineering teams actually enjoy using."
+  />
+
+  <section class="section">
+    <div class="wrap about">
+      <div class="about__main">
+        <div class="content prose">
+          <p>{profile.summary}</p>
+          <p>
+            In practice that means I spend my time on three things: making infrastructure
+            reproducible, making delivery safe, and making both of those someone else's
+            self-service instead of my inbox. I have run production workloads on <strong>AWS</strong>,
+            <strong>GCP</strong> and <strong>Azure</strong> — including EKS, GKE and AKS clusters —
+            wrapped in Terraform, fronted by Kong and Istio, and delivered through pipelines in
+            Azure DevOps, Cloud Build, CodePipeline and Jenkins.
+          </p>
+          <p>
+            Most recently at <strong>Kotak Mahindra Bank</strong>, that work happens under real
+            regulatory pressure: zero-downtime releases on customer-facing banking systems, live
+            CVE visibility across the container estate, and automated database backups into S3 that
+            satisfy both compliance retention and disaster recovery. Before that, as Lead DevOps
+            Engineer at <strong>FiftyFive Technologies</strong>, I led a team delivering multi-cloud
+            platforms for several clients at once, and wrote the FastAPI service that let their
+            developers manage Kubernetes resources themselves.
+          </p>
+          <p>
+            I hold six certifications — including <strong>CKA</strong>, <strong>CKS</strong> and
+            <strong>CKAD</strong> — and I write about the things I break and fix on the
+            <a href="/blog">blog</a>. The <a href="/tools">tools section</a> is the practical side of
+            that: small, fast, browser-only utilities I got tired of looking up.
+          </p>
+        </div>
+
+        <h2 class="about__h2">How I work</h2>
+        <div class="principles">
+          {
+            principles.map((p) => (
+              <article class="panel">
+                <h3 class="principle__title">{p.title}</h3>
+                <p class="muted principle__body">{p.body}</p>
+              </article>
+            ))
+          }
+        </div>
+
+        <h2 class="about__h2">The short version</h2>
+        <ol class="mini-timeline">
+          {
+            timeline.map((t) => (
+              <li>
+                <span class="mini-timeline__year">{t.year}</span>
+                <span class="muted">{t.text}</span>
+              </li>
+            ))
+          }
+        </ol>
+      </div>
+
+      <aside class="about__side">
+        <div class="panel side-card">
+          <h2 class="side-card__title">At a glance</h2>
+          <dl class="facts">
+            <div><dt>Role</dt><dd>{profile.headline}</dd></div>
+            <div><dt>Based in</dt><dd>{site.author.location}</dd></div>
+            <div><dt>Experience</dt><dd>7+ years</dd></div>
+            <div><dt>Clouds</dt><dd>AWS · GCP · Azure · OCI</dd></div>
+            <div><dt>Focus</dt><dd>Kubernetes, IaC, DevSecOps, FinOps</dd></div>
+          </dl>
+        </div>
+
+        <div class="panel side-card">
+          <h2 class="side-card__title">Certifications</h2>
+          <ul class="cert-list">
+            {
+              certifications.map((c) => (
+                <li>
+                  <span class="chip chip--signal">{c.short}</span>
+                  <span class="muted">{c.name}</span>
+                </li>
+              ))
+            }
+          </ul>
+        </div>
+
+        <div class="panel side-card">
+          <h2 class="side-card__title">Work with me</h2>
+          <p class="muted side-card__body">
+            Open to senior platform, DevOps and SRE roles and consulting engagements.
+          </p>
+          <a class="btn btn--primary side-card__cta" href="/contact">Get in touch</a>
+        </div>
+      </aside>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .about {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 20rem);
+    gap: 2.5rem;
+    align-items: start;
+  }
+
+  .about__h2 {
+    font-size: var(--step-2);
+    margin: 3rem 0 1.25rem;
+  }
+
+  .principles {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 17rem), 1fr));
+    gap: 1rem;
+  }
+
+  .principle__title {
+    font-size: 1rem;
+    color: var(--signal);
+  }
+
+  .principle__body {
+    font-size: 0.92rem;
+    margin-top: 0.5rem;
+  }
+
+  .mini-timeline {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .mini-timeline li {
+    display: grid;
+    grid-template-columns: 7rem 1fr;
+    gap: 1rem;
+    padding: 0.9rem 0;
+    border-bottom: 1px solid var(--line);
+    font-size: 0.93rem;
+  }
+
+  .mini-timeline li:last-child {
+    border-bottom: 0;
+  }
+
+  .mini-timeline__year {
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    color: var(--signal);
+  }
+
+  .about__side {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    position: sticky;
+    top: 5.5rem;
+  }
+
+  .side-card__title {
+    font-size: 0.8rem;
+    font-family: var(--font-mono);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--fg-3);
+    margin-bottom: 0.9rem;
+  }
+
+  .facts {
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .facts > div {
+    display: grid;
+    grid-template-columns: 5.5rem 1fr;
+    gap: 0.75rem;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--line);
+    font-size: 0.86rem;
+  }
+
+  .facts > div:last-child {
+    border-bottom: 0;
+  }
+
+  .facts dt {
+    color: var(--fg-3);
+  }
+
+  .facts dd {
+    margin: 0;
+  }
+
+  .cert-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    font-size: 0.84rem;
+  }
+
+  .cert-list li {
+    display: grid;
+    grid-template-columns: 3.6rem 1fr;
+    gap: 0.6rem;
+    align-items: center;
+  }
+
+  .side-card__body {
+    font-size: 0.88rem;
+  }
+
+  .side-card__cta {
+    margin-top: 1rem;
+    width: 100%;
+    justify-content: center;
+  }
+
+  @media (max-width: 58rem) {
+    .about {
+      grid-template-columns: 1fr;
+    }
+    .about__side {
+      position: static;
+    }
+  }
+
+  @media (max-width: 34rem) {
+    .mini-timeline li {
+      grid-template-columns: 1fr;
+      gap: 0.2rem;
+    }
+  }
+</style>

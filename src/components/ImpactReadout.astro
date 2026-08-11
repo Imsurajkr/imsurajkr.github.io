@@ -1,0 +1,141 @@
+---
+import { profile } from '../data/resume';
+---
+
+<section class="readout" aria-label="Career at a glance">
+  <div class="wrap">
+    <dl class="readout__grid">
+      {
+        profile.stats.map((stat, index) => (
+          <div class="metric" data-reveal style={`--reveal-delay: ${index * 55}ms`}>
+            <dt class="metric__label">{stat.label}</dt>
+            <dd
+              class="metric__value"
+              data-count={stat.value.replace(/[^\d]/g, '')}
+              data-suffix={stat.value.replace(/[\d]/g, '')}
+            >
+              {stat.value}
+            </dd>
+            <span class="metric__spark" aria-hidden="true" />
+          </div>
+        ))
+      }
+    </dl>
+  </div>
+</section>
+
+<style>
+  .readout {
+    border-bottom: 1px solid var(--line);
+    background: var(--bg-1);
+  }
+
+  .readout__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(50%, 11rem), 1fr));
+    margin: 0;
+  }
+
+  .metric {
+    position: relative;
+    padding: var(--s-5) var(--s-4) var(--s-5) 0;
+    border-right: 1px solid var(--line);
+  }
+
+  .metric:last-child {
+    border-right: 0;
+  }
+
+  .metric:not(:first-child) {
+    padding-left: var(--s-5);
+  }
+
+  .metric__label {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--fg-4);
+  }
+
+  .metric__value {
+    margin: var(--s-2) 0 0;
+    font-family: var(--font-mono);
+    font-size: var(--step-3);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: var(--fg);
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+  }
+
+  /* A short baseline rule under each figure — instrument, not decoration. */
+  .metric__spark {
+    display: block;
+    height: 2px;
+    width: 2.25rem;
+    margin-top: var(--s-3);
+    background: var(--signal);
+    opacity: 0.55;
+    transform-origin: left;
+    transform: scaleX(0);
+    transition: transform 0.6s var(--ease-out) 0.2s;
+  }
+
+  .metric.is-revealed .metric__spark {
+    transform: scaleX(1);
+  }
+
+  @media (max-width: 46rem) {
+    .metric {
+      padding: var(--s-4) var(--s-3);
+      border-bottom: 1px solid var(--line);
+    }
+    .metric:nth-child(2n) {
+      border-right: 0;
+    }
+    .metric:not(:first-child) {
+      padding-left: var(--s-3);
+    }
+  }
+</style>
+
+<script>
+  /* Count figures up once, on first view. Real numbers, so the motion is
+     legible rather than ornamental. */
+  const values = document.querySelectorAll<HTMLElement>('.metric__value[data-count]');
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  if (!reduced && 'IntersectionObserver' in window) {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue;
+          const el = entry.target as HTMLElement;
+          observer.unobserve(el);
+
+          const target = Number(el.dataset.count);
+          const suffix = el.dataset.suffix ?? '';
+          if (!Number.isFinite(target) || target === 0) continue;
+
+          const duration = 900;
+          const start = performance.now();
+
+          const tick = (now: number) => {
+            const progress = Math.min(1, (now - start) / duration);
+            // easeOutCubic
+            const eased = 1 - Math.pow(1 - progress, 3);
+            el.textContent = `${Math.round(target * eased)}${suffix}`;
+            if (progress < 1) requestAnimationFrame(tick);
+          };
+
+          el.textContent = `0${suffix}`;
+          requestAnimationFrame(tick);
+        }
+      },
+      { threshold: 0.4 }
+    );
+
+    values.forEach((el) => observer.observe(el));
+  }
+</script>

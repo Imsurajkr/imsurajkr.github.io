@@ -1,0 +1,226 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import PageHeader from '../components/PageHeader.astro';
+import { site } from '../data/site';
+
+const title = 'Privacy Policy';
+const description =
+  'Privacy policy for imsurajkr.github.io — what this site does and does not collect. No analytics, no advertising, no tracking cookies; the DevOps tools run entirely in your browser.';
+
+const effectiveDate = '12 August 2026';
+
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'WebPage',
+  name: 'Privacy Policy',
+  url: `${site.url}/privacy`,
+  description,
+  dateModified: '2026-08-12',
+  publisher: { '@type': 'Person', name: site.author.name },
+};
+---
+
+<BaseLayout title={title} description={description} jsonLd={jsonLd}>
+  <PageHeader
+    eyebrow="Legal"
+    title="Privacy Policy"
+    lead="The short version: this is a static personal site. It has no accounts, no advertising, no analytics and no tracking cookies, and the tools never send your data anywhere."
+  >
+    <p class="dim updated">Effective {effectiveDate}</p>
+  </PageHeader>
+
+  <section class="section">
+    <div class="wrap privacy">
+      <article class="content prose">
+        <div class="summary card">
+          <h2 class="summary__title">At a glance</h2>
+          <ul class="summary__list">
+            <li><strong>No analytics</strong> — no Google Analytics, no pixels, no fingerprinting.</li>
+            <li><strong>No advertising</strong> and no data is sold or shared with brokers.</li>
+            <li><strong>No accounts</strong>, logins, or newsletters.</li>
+            <li>
+              <strong>No tracking cookies.</strong> One item of <code>localStorage</code> stores your
+              light/dark theme choice, and never leaves your device.
+            </li>
+            <li>
+              <strong>The tools run entirely in your browser.</strong> Anything you paste into the
+              subnet calculator, JWT decoder, Base64 or YAML converters is processed locally and is
+              never uploaded.
+            </li>
+          </ul>
+        </div>
+
+        <h2>Who runs this site</h2>
+        <p>
+          This website is a personal portfolio and resume operated by {site.author.name}, based in
+          {site.author.location}. Questions about this policy can go to
+          <a href={site.social.email}>{site.author.email}</a>.
+        </p>
+
+        <h2>What this site stores on your device</h2>
+        <p>
+          This site does not use cookies. It stores exactly one value in your browser's
+          <code>localStorage</code>:
+        </p>
+        <div class="scroll-x">
+          <table>
+            <thead>
+              <tr>
+                <th>Key</th>
+                <th>Purpose</th>
+                <th>Retention</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>theme</code></td>
+                <td>Remembers whether you chose the light or dark theme.</td>
+                <td>Until you clear your browser storage.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p>
+          This value is read and written only by your own browser. It is not transmitted to me or to
+          anyone else. Clearing your site data removes it, and the site falls back to your operating
+          system's colour preference.
+        </p>
+
+        <h2>The DevOps tools</h2>
+        <p>
+          Every tool on the <a href="/tools">tools page</a> is implemented in client-side JavaScript
+          that ships with the page. There is no backend and no API call behind them. Network
+          addresses, tokens, YAML, JSON, cron expressions and any other input you provide are parsed
+          in memory in your browser, are not written to storage, and are discarded when you close or
+          reload the tab.
+        </p>
+        <p class="callout">
+          A practical note, not a legal one: the JWT decoder shows you the contents of a token
+          without verifying its signature, and it never sends the token anywhere. Even so, treat
+          production credentials with care — you should be cautious about pasting live secrets into
+          any web page, including this one.
+        </p>
+
+        <h2>Hosting and server logs</h2>
+        <p>
+          The site is hosted on <strong>GitHub Pages</strong>. Like any web host, GitHub's
+          infrastructure processes technical information when it serves a page to you — including
+          your IP address, user agent and the URL requested — for delivery, security and abuse
+          prevention. I do not have access to these logs and cannot identify individual visitors.
+          GitHub's handling of that data is governed by the
+          <a
+            href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement"
+            target="_blank"
+            rel="noopener noreferrer">GitHub Privacy Statement</a
+          >.
+        </p>
+
+        <h2>Third-party content</h2>
+        <p>
+          Some blog posts embed images hosted by third parties such as Unsplash, Pixabay and GitHub's
+          content CDN. When your browser loads one of those images, it makes a request to that
+          provider, which necessarily reveals your IP address and user agent to them. I have no
+          control over and no access to what those providers log.
+        </p>
+        <p>
+          The site also links out to LinkedIn, GitHub and other external sites. Once you follow such
+          a link, that site's own privacy policy applies — not this one.
+        </p>
+
+        <h2>The contact form</h2>
+        <p>
+          The form on the <a href="/contact">contact page</a> does not submit anything to a server.
+          It assembles the text you typed into a <code>mailto:</code> link and hands it to your own
+          email client, where you remain in control and can edit or discard it before sending. No
+          copy is kept by this site.
+        </p>
+        <p>
+          If you do choose to email, call or message me, I will hold that correspondence — your name,
+          contact details and whatever you wrote — for as long as needed to reply and to keep a
+          record of the conversation. I do not add correspondents to mailing lists.
+        </p>
+
+        <h2>Your rights</h2>
+        <p>
+          Because this site collects no personal data itself, there is generally nothing for me to
+          access, correct or delete. Where I do hold information you sent me directly by email, you
+          can ask me to provide a copy of it or erase it by writing to
+          <a href={site.social.email}>{site.author.email}</a>, and I will act on the request.
+          Depending on where you live, data protection law — such as the GDPR in the EU/UK or
+          India's Digital Personal Data Protection Act — may give you additional rights, including
+          the right to complain to your national supervisory authority.
+        </p>
+
+        <h2>Children</h2>
+        <p>
+          This site is aimed at working professionals. It is not directed at children and knowingly
+          collects no information from them.
+        </p>
+
+        <h2>Changes to this policy</h2>
+        <p>
+          If the site starts doing something that affects your privacy — adding analytics or comments,
+          for example — this page will be updated and the effective date above changed before or at
+          the same time as the change goes live. The full revision history of this page is public in
+          the site's
+          <a href={site.social.github} target="_blank" rel="noopener noreferrer">Git repository</a>.
+        </p>
+
+        <hr />
+        <p class="dim disclaimer">
+          This is a plain-language policy for a personal, non-commercial website, written to describe
+          accurately what the site does. It is not legal advice.
+        </p>
+      </article>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .updated {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    margin-top: 1rem;
+  }
+
+  .privacy {
+    display: flex;
+    justify-content: center;
+  }
+
+  .summary {
+    background: var(--bg-1);
+    margin-bottom: 2.5rem;
+  }
+
+  .summary__title {
+    font-size: 0.8rem;
+    font-family: var(--font-mono);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--fg-3);
+    margin: 0 0 0.9rem;
+  }
+
+  .summary__list {
+    margin: 0;
+    padding-left: 1.2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    font-size: 0.92rem;
+    color: var(--fg-2);
+  }
+
+  .callout {
+    border-left: 3px solid var(--guard);
+    background: var(--bg-1);
+    padding: 0.9rem 1.2rem;
+    border-radius: 0 var(--r) var(--r) 0;
+    font-size: 0.92rem;
+  }
+
+  .disclaimer {
+    font-size: 0.82rem;
+  }
+</style>

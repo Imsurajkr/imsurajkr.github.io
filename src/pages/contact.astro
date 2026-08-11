@@ -1,0 +1,388 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import PageHeader from '../components/PageHeader.astro';
+import { site } from '../data/site';
+
+const title = 'Contact';
+const description =
+  'Get in touch with Suraj Kumar — Senior Platform & DevOps Engineer in Gurugram, India. Email, phone, LinkedIn and GitHub.';
+
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'ContactPage',
+  name: 'Contact Suraj Kumar',
+  url: `${site.url}/contact`,
+  description,
+  mainEntity: {
+    '@type': 'Person',
+    name: site.author.name,
+    email: site.author.email,
+    telephone: site.author.phone,
+    url: site.url,
+    address: {
+      '@type': 'PostalAddress',
+      addressLocality: 'Gurugram',
+      addressRegion: 'Haryana',
+      addressCountry: 'IN',
+    },
+    sameAs: [site.social.github, site.social.linkedin],
+  },
+};
+
+const channels = [
+  {
+    label: 'Email',
+    value: site.author.email,
+    href: site.social.email,
+    note: 'Best for roles, consulting and anything with detail. I usually reply within a day or two.',
+    icon: 'mail',
+  },
+  {
+    label: 'Phone',
+    value: site.author.phone,
+    href: `tel:${site.author.phone.replace(/[^+\d]/g, '')}`,
+    note: 'Available during IST working hours.',
+    icon: 'phone',
+  },
+  {
+    label: 'LinkedIn',
+    value: '/in/dev-surajkumar',
+    href: site.social.linkedin,
+    note: 'Connect, or message me there if that is easier.',
+    icon: 'linkedin',
+  },
+  {
+    label: 'GitHub',
+    value: '@imsurajkr',
+    href: site.social.github,
+    note: 'Code, this site, and the occasional experiment.',
+    icon: 'github',
+  },
+];
+---
+
+<BaseLayout title={title} description={description} jsonLd={jsonLd}>
+  <PageHeader
+    eyebrow="Contact us"
+    title="Get in touch"
+    lead="Open to senior platform, DevOps and SRE roles, and to consulting on Kubernetes, multi-cloud IaC and DevSecOps. The fastest route is email."
+  />
+
+  <section class="section">
+    <div class="wrap contact-grid">
+      <!-- Compose form -->
+      <div class="panel compose">
+        <h2 class="compose__title">Send a message</h2>
+        <p class="muted compose__note">
+          This site is fully static — there is no server to receive a form post. Filling this in
+          opens a pre-written email in your own mail client, so nothing is submitted to or stored by
+          this site.
+        </p>
+
+        <form id="contact-form" class="form" novalidate>
+          <div class="field">
+            <label for="cf-name">Your name</label>
+            <input id="cf-name" name="name" type="text" autocomplete="name" required />
+          </div>
+
+          <div class="field">
+            <label for="cf-org">Company <span class="dim">(optional)</span></label>
+            <input id="cf-org" name="org" type="text" autocomplete="organization" />
+          </div>
+
+          <div class="field">
+            <label for="cf-topic">Topic</label>
+            <select id="cf-topic" name="topic">
+              <option>Role / hiring enquiry</option>
+              <option>Consulting engagement</option>
+              <option>Question about a blog post</option>
+              <option>Feedback on the DevOps tools</option>
+              <option>Something else</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="cf-message">Message</label>
+            <textarea id="cf-message" name="message" rows="6" required></textarea>
+          </div>
+
+          <p id="cf-error" class="form__error" role="alert" hidden></p>
+
+          <button type="submit" class="btn btn--primary form__submit">
+            Open in my email client
+          </button>
+
+          <p class="dim form__fallback">
+            Mail client not set up? Just write to
+            <a href={site.social.email}>{site.author.email}</a>.
+          </p>
+        </form>
+      </div>
+
+      <!-- Direct channels -->
+      <div class="channels">
+        {
+          channels.map((c) => (
+            <a
+              class="panel row-hover channel"
+              href={c.href}
+              target={c.href.startsWith('http') ? '_blank' : undefined}
+              rel={c.href.startsWith('http') ? 'noopener noreferrer' : undefined}
+            >
+              <span class="channel__icon" aria-hidden="true">
+                {c.icon === 'mail' && (
+                  <svg viewBox="0 0 24 24">
+                    <path d="M22 6c0-1.1-.9-2-2-2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6zm-2 0-8 5-8-5h16zm0 12H4V8l8 5 8-5v10z" />
+                  </svg>
+                )}
+                {c.icon === 'phone' && (
+                  <svg viewBox="0 0 24 24">
+                    <path d="M6.62 10.79a15.05 15.05 0 0 0 6.59 6.59l2.2-2.2a1 1 0 0 1 1.02-.24c1.12.37 2.33.57 3.57.57a1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.45.57 3.57a1 1 0 0 1-.25 1.02l-2.2 2.2z" />
+                  </svg>
+                )}
+                {c.icon === 'linkedin' && (
+                  <svg viewBox="0 0 24 24">
+                    <path d="M4.98 3.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zM2.4 21.5h5.16V9.06H2.4V21.5zM9.9 9.06h4.94v1.7h.07c.69-1.24 2.37-2.55 4.88-2.55 5.22 0 6.18 3.28 6.18 7.54v5.75h-5.15v-5.1c0-1.22-.02-2.78-1.77-2.78-1.78 0-2.05 1.32-2.05 2.69v5.19H9.9V9.06z" />
+                  </svg>
+                )}
+                {c.icon === 'github' && (
+                  <svg viewBox="0 0 24 24">
+                    <path d="M12 .5a12 12 0 0 0-3.79 23.4c.6.11.82-.26.82-.58v-2.03c-3.34.72-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.09-.75.08-.73.08-.73 1.2.08 1.84 1.24 1.84 1.24 1.07 1.83 2.81 1.3 3.5.99.1-.78.42-1.31.76-1.61-2.67-.3-5.47-1.34-5.47-5.96 0-1.32.47-2.39 1.24-3.23-.13-.3-.54-1.53.11-3.18 0 0 1.01-.32 3.3 1.23a11.5 11.5 0 0 1 6.01 0c2.29-1.55 3.3-1.23 3.3-1.23.65 1.65.24 2.88.12 3.18.77.84 1.23 1.91 1.23 3.23 0 4.63-2.8 5.65-5.48 5.95.43.37.82 1.1.82 2.22v3.29c0 .32.22.7.83.58A12 12 0 0 0 12 .5z" />
+                  </svg>
+                )}
+              </span>
+              <div class="channel__body">
+                <span class="channel__label dim">{c.label}</span>
+                <strong class="channel__value">{c.value}</strong>
+                <span class="channel__note muted">{c.note}</span>
+              </div>
+            </a>
+          ))
+        }
+
+        <div class="panel location">
+          <h2 class="side-title">Location &amp; availability</h2>
+          <p class="muted location__body">
+            Based in <strong>{site.author.location}</strong>, working IST (UTC+5:30). Comfortable
+            with remote and distributed teams — most of my last four years were spent supporting
+            clients across time zones.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .contact-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+    gap: 1.5rem;
+    align-items: start;
+  }
+
+  .compose {
+    padding: clamp(1.25rem, 3vw, 2rem);
+  }
+
+  .compose__title {
+    font-size: var(--step-1);
+  }
+
+  .compose__note {
+    font-size: 0.86rem;
+    margin-top: 0.5rem;
+  }
+
+  .form {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin-top: 1.5rem;
+  }
+
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .field label {
+    font-size: 0.82rem;
+    font-weight: 550;
+    color: var(--fg-2);
+  }
+
+  .field input,
+  .field select,
+  .field textarea {
+    width: 100%;
+    padding: 0.6rem 0.75rem;
+    border-radius: var(--r);
+    border: 1px solid var(--line);
+    background: var(--bg);
+    color: var(--fg);
+    font-size: 0.92rem;
+    transition: border-color 0.18s var(--ease);
+  }
+
+  .field textarea {
+    resize: vertical;
+    min-height: 7rem;
+  }
+
+  .field input:focus,
+  .field select:focus,
+  .field textarea:focus {
+    border-color: var(--signal);
+    outline: none;
+  }
+
+  .field input[aria-invalid='true'],
+  .field textarea[aria-invalid='true'] {
+    border-color: var(--alert);
+  }
+
+  .form__error {
+    color: var(--alert);
+    font-size: 0.85rem;
+    margin: 0;
+  }
+
+  .form__submit {
+    justify-content: center;
+  }
+
+  .form__fallback {
+    font-size: 0.8rem;
+    text-align: center;
+    margin: 0;
+  }
+
+  .channels {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .channel {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+    text-decoration: none;
+    color: inherit;
+    padding: 1.1rem 1.25rem;
+  }
+
+  .channel__icon {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 2.4rem;
+    height: 2.4rem;
+    border-radius: var(--r);
+    background: var(--signal-soft);
+    color: var(--signal);
+  }
+
+  .channel__icon svg {
+    width: 1.1rem;
+    height: 1.1rem;
+    fill: currentColor;
+  }
+
+  .channel__body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    min-width: 0;
+  }
+
+  .channel__label {
+    font-size: 0.72rem;
+    font-family: var(--font-mono);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .channel__value {
+    font-size: 0.95rem;
+    font-weight: 570;
+    word-break: break-word;
+  }
+
+  .channel:hover .channel__value {
+    color: var(--signal);
+  }
+
+  .channel__note {
+    font-size: 0.82rem;
+    margin-top: 0.2rem;
+  }
+
+  .side-title {
+    font-size: 0.8rem;
+    font-family: var(--font-mono);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--fg-3);
+  }
+
+  .location__body {
+    font-size: 0.88rem;
+    margin-top: 0.7rem;
+  }
+
+  @media (max-width: 56rem) {
+    .contact-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+
+<script is:inline define:vars={{ recipient: site.author.email }}>
+  const form = document.getElementById('contact-form');
+  const errorBox = document.getElementById('cf-error');
+
+  function showError(message, field) {
+    if (!errorBox) return;
+    errorBox.textContent = message;
+    errorBox.hidden = false;
+    field?.setAttribute('aria-invalid', 'true');
+    field?.focus();
+  }
+
+  function clearError() {
+    if (!errorBox) return;
+    errorBox.hidden = true;
+    errorBox.textContent = '';
+    form?.querySelectorAll('[aria-invalid]').forEach((el) => el.removeAttribute('aria-invalid'));
+  }
+
+  form?.addEventListener('submit', (event) => {
+    event.preventDefault();
+    clearError();
+
+    const data = new FormData(form);
+    const name = String(data.get('name') ?? '').trim();
+    const org = String(data.get('org') ?? '').trim();
+    const topic = String(data.get('topic') ?? '').trim();
+    const message = String(data.get('message') ?? '').trim();
+
+    if (!name) {
+      showError('Please add your name so I know who I am replying to.', form.elements.namedItem('name'));
+      return;
+    }
+
+    if (message.length < 10) {
+      showError('Please write a slightly longer message.', form.elements.namedItem('message'));
+      return;
+    }
+
+    const subject = `${topic} — ${name}${org ? ` (${org})` : ''}`;
+    const body = `${message}\n\n—\n${name}${org ? `\n${org}` : ''}\nSent from imsurajkr.github.io/contact`;
+
+    window.location.href =
+      `mailto:${recipient}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  });
+</script>

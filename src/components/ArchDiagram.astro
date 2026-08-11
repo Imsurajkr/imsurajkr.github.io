@@ -1,0 +1,144 @@
+---
+import type { ArchLayer } from '../data/resume';
+
+/**
+ * A layered flow schematic rendered from data. Built in HTML rather than SVG so
+ * it reflows to a vertical stack on narrow screens and stays readable to screen
+ * readers and text zoom.
+ */
+export interface Props {
+  layers: ArchLayer[];
+  label: string;
+}
+
+const { layers, label } = Astro.props;
+
+const textual = layers
+  .map((layer) => `${layer.label}: ${layer.nodes.map((n) => n.label).join(', ')}`)
+  .join(' → ');
+---
+
+<figure class="arch" aria-label={`Architecture for ${label}. ${textual}`}>
+  <div class="arch__flow" aria-hidden="true">
+    {
+      layers.map((layer, index) => (
+        <>
+          <div class="arch__layer">
+            <span class="arch__layer-label">{layer.label}</span>
+            <div class="arch__nodes">
+              {layer.nodes.map((node) => (
+                <span class:list={['arch__node', `is-${node.tone ?? 'neutral'}`]}>
+                  {node.label}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          {index < layers.length - 1 && (
+            <div class="arch__link">
+              <svg viewBox="0 0 24 8" class="arch__arrow">
+                <path d="M0 4 H18 M14 1 L18 4 L14 7" fill="none" stroke="currentColor"
+                  stroke-width="1" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </div>
+          )}
+        </>
+      ))
+    }
+  </div>
+</figure>
+
+<style>
+  .arch {
+    margin: 0;
+  }
+
+  .arch__flow {
+    display: flex;
+    align-items: stretch;
+    gap: var(--s-2);
+  }
+
+  .arch__layer {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-2);
+    padding: var(--s-3);
+    background: var(--bg-2);
+    border: 1px solid var(--line);
+    border-radius: var(--r-sm);
+  }
+
+  .arch__layer-label {
+    font-family: var(--font-mono);
+    font-size: 0.62rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--fg-4);
+  }
+
+  .arch__nodes {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-1);
+  }
+
+  .arch__node {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    line-height: 1.3;
+    padding: 0.3rem 0.45rem;
+    border-radius: var(--r-sm);
+    border: 1px solid var(--line-2);
+    background: var(--bg-1);
+    color: var(--fg-2);
+    text-align: center;
+  }
+
+  .arch__node.is-signal {
+    border-color: color-mix(in srgb, var(--signal) 40%, transparent);
+    background: var(--signal-soft);
+    color: var(--signal);
+  }
+
+  .arch__node.is-health {
+    border-color: color-mix(in srgb, var(--health) 40%, transparent);
+    background: var(--health-soft);
+    color: var(--health);
+  }
+
+  .arch__node.is-guard {
+    border-color: color-mix(in srgb, var(--guard) 40%, transparent);
+    background: var(--guard-soft);
+    color: var(--guard);
+  }
+
+  .arch__link {
+    display: flex;
+    align-items: center;
+    flex: none;
+    color: var(--line-3);
+  }
+
+  .arch__arrow {
+    width: 22px;
+    height: 8px;
+  }
+
+  /* Stack vertically on narrow screens; the arrow rotates to point down. */
+  @media (max-width: 40rem) {
+    .arch__flow {
+      flex-direction: column;
+    }
+
+    .arch__link {
+      justify-content: center;
+    }
+
+    .arch__arrow {
+      transform: rotate(90deg);
+    }
+  }
+</style>

@@ -1,0 +1,54 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { nav } from '../data/site';
+---
+
+<BaseLayout title="Page not found" description="That page does not exist." noindex>
+  <section class="notfound">
+    <div class="wrap">
+      <p class="code">404</p>
+      <h1>That page moved, or never existed</h1>
+      <p class="lead prose">
+        This site was rebuilt from Jekyll to Astro. Old blog links were preserved, so if you followed
+        a post link it should still work — if it does not, the blog index below will have it.
+      </p>
+
+      <div class="links">
+        {nav.map((item) => <a class="btn" href={item.href}>{item.label}</a>)}
+      </div>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .notfound {
+    padding-block: clamp(4rem, 12vw, 8rem);
+    text-align: center;
+  }
+
+  .code {
+    font-family: var(--font-mono);
+    font-size: clamp(4rem, 15vw, 8rem);
+    font-weight: 700;
+    line-height: 1;
+    color: var(--signal);
+    opacity: 0.25;
+  }
+
+  .notfound h1 {
+    font-size: var(--step-3);
+    margin-top: -0.5rem;
+  }
+
+  .notfound .lead {
+    margin: 1.25rem auto 0;
+  }
+
+  .links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    justify-content: center;
+    margin-top: 2rem;
+  }
+</style>
