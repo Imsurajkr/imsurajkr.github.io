@@ -54,7 +54,9 @@ jobs:
           test -f dist/robots.txt
           # Blog permalinks inherited from the Jekyll site must keep resolving.
           for slug in monitoring nat-gateway unity-docker capistrano portainer \
-                      vim-editor hping3 github-branching; do
+                      vim-editor hping3 github-branching \
+                      reading-an-ipv4-address reading-a-traceroute \
+                      reading-a-packet-capture decoding-tokens-safely; do
             test -f "dist/blog/${slug}.html" || { echo "::error::missing /blog/${slug}"; exit 1; }
           done
           # Every tool page must exist.
