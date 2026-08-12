@@ -35,6 +35,24 @@ export const tools: Tool[] = [
     ],
   },
   {
+    slug: 'traceroute-analyzer',
+    name: 'Traceroute Analyzer',
+    tagline: 'See how far your traffic actually gets',
+    description:
+      'Paste traceroute, tracert or mtr output and get a straight answer: the last hop that replied, whether the destination was ever reached, and whether the silence after it is a firewall, a filtered router or real packet loss.',
+    seo: 'Free traceroute analyzer — paste traceroute, Windows tracert or mtr output and see the last responding hop, where traffic stops, latency jumps and packet loss. Runs entirely in your browser.',
+    category: 'Networking',
+    icon: 'route',
+    keywords: [
+      'traceroute analyzer',
+      'tracert output',
+      'mtr report',
+      'where does traffic stop',
+      'network path troubleshooting',
+      'packet loss hop',
+    ],
+  },
+  {
     slug: 'base64',
     name: 'Base64 Encoder / Decoder',
     tagline: 'Encode and decode, UTF-8 safe',

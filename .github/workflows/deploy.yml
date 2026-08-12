@@ -59,8 +59,8 @@ jobs:
             test -f "dist/blog/${slug}.html" || { echo "::error::missing /blog/${slug}"; exit 1; }
           done
           # Every tool page must exist.
-          for tool in subnet-calculator base64 jwt-decoder yaml-json \
-                      cron-expression generators; do
+          for tool in subnet-calculator traceroute-analyzer base64 jwt-decoder \
+                      yaml-json cron-expression generators; do
             test -f "dist/tools/${tool}.html" || { echo "::error::missing /tools/${tool}"; exit 1; }
           done
           echo "Build verified: $(find dist -name '*.html' | wc -l) HTML pages."

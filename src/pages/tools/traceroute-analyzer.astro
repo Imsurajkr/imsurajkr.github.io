@@ -1,0 +1,1296 @@
+---
+import ToolLayout from '../../layouts/ToolLayout.astro';
+---
+
+<ToolLayout slug="traceroute-analyzer">
+  <div class="tool-panel">
+    <div class="tool-head-row">
+      <p class="tool-panel__title">Route output</p>
+      <div class="tool-actions">
+        <button type="button" class="btn btn--sm sample" data-sample="unix">Sample: traceroute</button>
+        <button type="button" class="btn btn--sm sample" data-sample="windows">Sample: tracert</button>
+        <button type="button" class="btn btn--sm sample" data-sample="mtr">Sample: mtr</button>
+        <button type="button" class="btn btn--sm" id="clear-btn">Clear</button>
+      </div>
+    </div>
+
+    <label class="visually-hidden" for="route">Traceroute, tracert or mtr output</label>
+    <textarea
+      id="route"
+      class="tool-textarea"
+      rows="12"
+      spellcheck="false"
+      autocomplete="off"
+      placeholder={`Paste the whole thing, header line included. For example:
+
+traceroute to example.com (93.184.216.34), 30 hops max, 60 byte packets
+ 1  _gateway (192.168.1.1)  0.512 ms  0.478 ms  0.455 ms
+ 2  * * *
+ 3  93.184.216.34 (93.184.216.34)  11.9 ms  12.1 ms  11.8 ms`}
+    ></textarea>
+
+    <div class="tool-row dest-row">
+      <div class="tool-field tool-field--grow">
+        <label for="expected">Destination you were aiming for (optional)</label>
+        <input
+          id="expected"
+          class="tool-input tool-input--mono"
+          type="text"
+          autocomplete="off"
+          spellcheck="false"
+          placeholder="api.example.com or 10.42.7.20"
+        />
+      </div>
+    </div>
+    <p class="hint dim">
+      Needed only when the output has no header line to read it from — <code>mtr --report</code>,
+      for instance. With it, the tool can say whether the last hop that replied <em>is</em> your
+      destination.
+    </p>
+
+    <p id="parse-status" class="tool-status" role="status"></p>
+  </div>
+
+  <div id="results" hidden>
+    <div class="tool-panel verdict-panel" id="verdict-panel">
+      <p class="tool-panel__title">Verdict</p>
+      <p class="verdict__headline" id="verdict-headline"></p>
+      <p class="verdict__detail" id="verdict-detail"></p>
+
+      <div class="strip" id="strip" aria-hidden="true"></div>
+      <div class="legend">
+        <span class="legend__item"><i class="dot dot--ok"></i>replied</span>
+        <span class="legend__item"><i class="dot dot--partial"></i>partial loss</span>
+        <span class="legend__item"><i class="dot dot--silent"></i>no reply</span>
+        <span class="legend__item"><i class="dot dot--blocked"></i>rejected</span>
+        <span class="legend__item"><i class="dot dot--last"></i>last confirmed hop</span>
+      </div>
+    </div>
+
+    <div class="tool-panel">
+      <div class="tool-head-row">
+        <p class="tool-panel__title">Summary</p>
+        <div class="tool-actions">
+          <button type="button" class="btn btn--sm" id="copy-report">Copy report</button>
+        </div>
+      </div>
+      <dl class="kv" id="summary"></dl>
+    </div>
+
+    <div class="tool-panel" id="findings-panel">
+      <p class="tool-panel__title">What the path is telling you</p>
+      <ul class="findings" id="findings"></ul>
+    </div>
+
+    <div class="tool-panel">
+      <p class="tool-panel__title">Hop by hop</p>
+      <div class="scroll-x">
+        <table class="tool-table hops-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Hop</th>
+              <th>Network</th>
+              <th>Best</th>
+              <th>Avg</th>
+              <th>Loss</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="hopsbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="tool-panel notes-panel">
+    <p class="tool-panel__title">Reading a trace honestly</p>
+    <ul class="notes">
+      <li>
+        <strong>A silent hop in the middle means nothing.</strong> Plenty of routers are configured
+        not to send ICMP time-exceeded messages. If a later hop answers, the packets went straight
+        through the quiet ones.
+      </li>
+      <li>
+        <strong>A silent tail is not proof of an outage.</strong> Hosts and firewalls routinely drop
+        traceroute probes while happily serving traffic. Confirm with the real protocol —
+        <code>traceroute -T -p 443</code>, <code>nc -vz host 443</code> or <code>curl -v</code> —
+        before you escalate.
+      </li>
+      <li>
+        <strong>Rising latency at one hop is not that hop's fault.</strong> The number is the round
+        trip to the router, on the router's slow control plane. What matters is whether the increase
+        carries through to every hop after it.
+      </li>
+    </ul>
+  </div>
+
+  <noscript>
+    <p class="tool-status tool-status--error">
+      This analyzer needs JavaScript — it parses your trace entirely in the browser.
+    </p>
+  </noscript>
+</ToolLayout>
+
+<style>
+  .dest-row {
+    margin-top: 0.9rem;
+  }
+
+  .hint {
+    font-size: 0.8rem;
+    margin-top: 0.5rem;
+  }
+
+  .hint code,
+  .notes code {
+    font-family: var(--font-mono);
+    font-size: 0.92em;
+    background: var(--bg-2);
+    padding: 0.05rem 0.3rem;
+    border-radius: var(--r-sm);
+  }
+
+  /* ------------------------------------------------------------- verdict */
+
+  .verdict-panel {
+    border-left: 3px solid var(--line-2);
+  }
+
+  .verdict-panel[data-level='good'] {
+    border-left-color: var(--health);
+  }
+
+  .verdict-panel[data-level='warn'] {
+    border-left-color: var(--guard);
+  }
+
+  .verdict-panel[data-level='bad'] {
+    border-left-color: var(--alert);
+  }
+
+  .verdict__headline {
+    font-size: var(--step-1);
+    font-weight: 600;
+    line-height: 1.35;
+  }
+
+  .verdict-panel[data-level='good'] .verdict__headline {
+    color: var(--health);
+  }
+
+  .verdict-panel[data-level='warn'] .verdict__headline {
+    color: var(--guard);
+  }
+
+  .verdict-panel[data-level='bad'] .verdict__headline {
+    color: var(--alert);
+  }
+
+  .verdict__detail {
+    margin-top: 0.55rem;
+    font-size: 0.9rem;
+    color: var(--fg-2);
+    line-height: 1.6;
+    max-width: var(--maxw-prose);
+  }
+
+  /* ---------------------------------------------------------- hop strip */
+
+  .strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+    margin-top: 1.2rem;
+  }
+
+  .strip :global(.strip__cell) {
+    min-width: 1.9rem;
+    flex: 1 1 1.9rem;
+    max-width: 3.2rem;
+    height: 2rem;
+    display: grid;
+    place-items: center;
+    border-radius: var(--r-sm);
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    color: var(--fg-2);
+    background: var(--bg-3);
+    border: 1px solid transparent;
+  }
+
+  .strip :global(.strip__cell[data-state='ok']) {
+    background: var(--health-soft);
+    color: var(--health);
+  }
+
+  .strip :global(.strip__cell[data-state='partial']) {
+    background: var(--guard-soft);
+    color: var(--guard);
+  }
+
+  .strip :global(.strip__cell[data-state='blocked']) {
+    background: color-mix(in srgb, var(--alert) 16%, transparent);
+    color: var(--alert);
+  }
+
+  .strip :global(.strip__cell[data-last='true']) {
+    border-color: currentColor;
+    font-weight: 700;
+  }
+
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 1rem;
+    margin-top: 0.7rem;
+    font-size: 0.74rem;
+    color: var(--fg-3);
+  }
+
+  .legend__item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .dot {
+    width: 0.62rem;
+    height: 0.62rem;
+    border-radius: 2px;
+    background: var(--bg-3);
+    border: 1px solid transparent;
+  }
+
+  .dot--ok {
+    background: var(--health);
+  }
+
+  .dot--partial {
+    background: var(--guard);
+  }
+
+  .dot--blocked {
+    background: var(--alert);
+  }
+
+  .dot--last {
+    background: transparent;
+    border-color: var(--fg-2);
+  }
+
+  /* ----------------------------------------------------------- findings */
+
+  .findings {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    gap: 0.7rem;
+  }
+
+  .findings :global(li) {
+    display: grid;
+    grid-template-columns: 1.1rem 1fr;
+    gap: 0.55rem;
+    font-size: 0.88rem;
+    color: var(--fg-2);
+    line-height: 1.55;
+  }
+
+  .findings :global(li b) {
+    color: var(--fg);
+    font-weight: 600;
+  }
+
+  .findings :global(.finding__mark) {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    line-height: 1.7;
+    color: var(--fg-3);
+  }
+
+  .findings :global(li[data-level='good'] .finding__mark) {
+    color: var(--health);
+  }
+
+  .findings :global(li[data-level='warn'] .finding__mark) {
+    color: var(--guard);
+  }
+
+  .findings :global(li[data-level='bad'] .finding__mark) {
+    color: var(--alert);
+  }
+
+  /* --------------------------------------------------------- hop table */
+
+  .hops-table {
+    min-width: 46rem;
+  }
+
+  .hops-table :global(.hop-host) {
+    white-space: normal;
+    min-width: 16rem;
+  }
+
+  .hops-table :global(.hop-name) {
+    color: var(--fg);
+  }
+
+  .hops-table :global(.hop-ip) {
+    color: var(--fg-3);
+  }
+
+  .hops-table :global(.hop-extra) {
+    display: block;
+    color: var(--fg-4);
+    font-size: 0.76rem;
+  }
+
+  .hops-table :global(.zone) {
+    font-size: 0.72rem;
+    color: var(--fg-3);
+  }
+
+  .hops-table :global(tr[data-state='silent']) {
+    color: var(--fg-4);
+  }
+
+  .hops-table :global(.state) {
+    font-size: 0.76rem;
+  }
+
+  .hops-table :global(.state--ok) {
+    color: var(--health);
+  }
+
+  .hops-table :global(.state--partial) {
+    color: var(--guard);
+  }
+
+  .hops-table :global(.state--blocked) {
+    color: var(--alert);
+  }
+
+  .hops-table :global(tr[data-last='true']) {
+    background: var(--signal-soft);
+  }
+
+  /* -------------------------------------------------------------- notes */
+
+  .notes-panel {
+    margin-top: 1rem;
+  }
+
+  .notes {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    gap: 0.7rem;
+    max-width: var(--maxw-prose);
+  }
+
+  .notes li {
+    font-size: 0.88rem;
+    color: var(--fg-2);
+    line-height: 1.6;
+  }
+</style>
+
+<script>
+  // ---------------------------------------------------------------- types
+
+  type Zone = 'lan' | 'cgnat' | 'public' | 'special' | 'unknown';
+  type State = 'ok' | 'partial' | 'silent' | 'blocked';
+  type Level = 'good' | 'warn' | 'bad' | 'info';
+
+  interface HostRef {
+    ip?: string;
+    name?: string;
+  }
+
+  interface Hop {
+    index: number;
+    hosts: HostRef[];
+    rtts: number[];
+    probes: number;
+    /** Loss percentage: reported by mtr, otherwise derived from lost probes. */
+    lossPct: number;
+    /** Pre-aggregated timings, when the tool reports them instead of raw probes. */
+    stats: { best: number; avg: number } | null;
+    annotations: string[];
+    responded: boolean;
+  }
+
+  interface Parsed {
+    format: 'traceroute' | 'tracert' | 'mtr' | null;
+    target: HostRef | null;
+    source: string | null;
+    hopLimit: number | null;
+    complete: boolean;
+    hops: Hop[];
+    skipped: number;
+  }
+
+  interface Finding {
+    level: Level;
+    html: string;
+  }
+
+  // ICMP unreachable codes traceroute prints as !X style annotations.
+  const ANNOTATIONS: Record<string, string> = {
+    H: 'host unreachable',
+    N: 'network unreachable',
+    P: 'protocol unreachable',
+    S: 'source route failed',
+    F: 'fragmentation needed',
+    X: 'communication administratively prohibited',
+    V: 'host precedence violation',
+    C: 'precedence cutoff in effect',
+    U: 'destination unreachable',
+    A: 'administratively prohibited',
+  };
+
+  /** Annotations that mean a device deliberately rejected the packet. */
+  const REJECTING = new Set(['H', 'N', 'P', 'X', 'A', 'C', 'U', 'V']);
+
+  // -------------------------------------------------------------- helpers
+
+  const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T | null;
+
+  const esc = (s: string) =>
+    s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
+
+  function isIPv4(token: string): boolean {
+    const parts = token.split('.');
+    if (parts.length !== 4) return false;
+    return parts.every((p) => /^\d{1,3}$/.test(p) && Number(p) <= 255);
+  }
+
+  const isIPv6 = (token: string): boolean =>
+    /^[0-9a-fA-F:]+$/.test(token) && token.includes(':') && (token.match(/:/g) ?? []).length >= 2;
+
+  const isIp = (token: string) => isIPv4(token) || isIPv6(token);
+
+  function zoneOf(ip?: string): { zone: Zone; label: string } {
+    if (!ip) return { zone: 'unknown', label: '—' };
+
+    if (isIPv6(ip)) {
+      const low = ip.toLowerCase();
+      if (low === '::1') return { zone: 'special', label: 'Loopback' };
+      if (/^fe[89ab]/.test(low)) return { zone: 'special', label: 'Link-local' };
+      if (/^f[cd]/.test(low)) return { zone: 'lan', label: 'Private (ULA)' };
+      return { zone: 'public', label: 'Public IPv6' };
+    }
+
+    const [a, b] = ip.split('.').map(Number);
+    if (a === 10) return { zone: 'lan', label: 'Private (10/8)' };
+    if (a === 172 && b >= 16 && b <= 31) return { zone: 'lan', label: 'Private (172.16/12)' };
+    if (a === 192 && b === 168) return { zone: 'lan', label: 'Private (192.168/16)' };
+    if (a === 100 && b >= 64 && b <= 127) return { zone: 'cgnat', label: 'ISP CGNAT (100.64/10)' };
+    if (a === 127) return { zone: 'special', label: 'Loopback' };
+    if (a === 169 && b === 254) return { zone: 'special', label: 'Link-local' };
+    if (a >= 224) return { zone: 'special', label: 'Multicast / reserved' };
+    return { zone: 'public', label: 'Public' };
+  }
+
+  const mean = (values: number[]) => values.reduce((sum, v) => sum + v, 0) / values.length;
+
+  const hasTiming = (hop: Hop) => hop.stats !== null || hop.rtts.length > 0;
+
+  const hopAvg = (hop: Hop) => hop.stats?.avg ?? mean(hop.rtts);
+
+  const hopBest = (hop: Hop) => hop.stats?.best ?? Math.min(...hop.rtts);
+
+  const ms = (value: number) => (value >= 100 ? value.toFixed(0) : value.toFixed(1)) + ' ms';
+
+  const hopLabel = (hop: Hop): string => {
+    const host = hop.hosts[0];
+    if (!host) return '(no reply)';
+    return host.name && host.ip ? `${host.name} (${host.ip})` : (host.name ?? host.ip ?? '?');
+  };
+
+  const stateOf = (hop: Hop): State => {
+    if (hop.annotations.some((code) => REJECTING.has(code))) return 'blocked';
+    if (!hop.responded) return 'silent';
+    return hop.lossPct > 0 ? 'partial' : 'ok';
+  };
+
+  function emptyHop(index: number): Hop {
+    return {
+      index,
+      hosts: [],
+      rtts: [],
+      probes: 0,
+      lossPct: 0,
+      stats: null,
+      annotations: [],
+      responded: false,
+    };
+  }
+
+  function addHost(hop: Hop, ip: string | undefined, name?: string) {
+    const key = ip || name;
+    if (!key) return;
+    const existing = hop.hosts.find((h) => (h.ip || h.name) === key);
+    if (existing) {
+      if (name && !existing.name) existing.name = name;
+      return;
+    }
+    hop.hosts.push({ ip, name: name && name !== ip ? name : undefined });
+  }
+
+  // --------------------------------------------------------------- parsing
+
+  /** Pull `name (1.2.3.4)` pairs, then any bare addresses left over (-n mode). */
+  function collectHosts(hop: Hop, rest: string) {
+    const paired = /([A-Za-z0-9_][A-Za-z0-9._-]*)\s+\((\d{1,3}(?:\.\d{1,3}){3}|[0-9a-fA-F:]{2,})\)/g;
+    for (const match of rest.matchAll(paired)) addHost(hop, match[2], match[1]);
+
+    for (const token of rest.replace(paired, ' ').split(/\s+/)) {
+      const clean = token.replace(/[(),]/g, '');
+      if (isIp(clean)) addHost(hop, clean);
+    }
+  }
+
+  function collectAnnotations(hop: Hop, rest: string) {
+    for (const match of rest.matchAll(/!([A-Za-z]|\d{1,3})/g)) {
+      const code = match[1].toUpperCase();
+      if (!hop.annotations.includes(code)) hop.annotations.push(code);
+    }
+  }
+
+  function parseUnix(lines: string[]): Parsed {
+    const out: Parsed = {
+      format: 'traceroute',
+      target: null,
+      source: null,
+      hopLimit: null,
+      complete: false,
+      hops: [],
+      skipped: 0,
+    };
+
+    let current: Hop | null = null;
+
+    for (const line of lines) {
+      const header = /^traceroute6?\s+to\s+(\S+)\s+\(([^)]+)\)/i.exec(line);
+      if (header) {
+        out.target = { name: header[1] === header[2] ? undefined : header[1], ip: header[2] };
+        const limit = /(\d+)\s+hops\s+max/i.exec(line);
+        if (limit) out.hopLimit = Number(limit[1]);
+        continue;
+      }
+
+      const numbered = /^\s*(\d{1,2})\s+(.*)$/.exec(line);
+      const continuation = current && /^\s{2,}\S/.test(line) && /(\bms\b|\*)/.test(line);
+
+      if (!numbered && !continuation) {
+        if (line.trim()) out.skipped++;
+        continue;
+      }
+
+      let rest: string;
+      if (numbered) {
+        current = emptyHop(Number(numbered[1]));
+        out.hops.push(current);
+        rest = numbered[2];
+      } else {
+        rest = line;
+      }
+
+      const hop = current!;
+      let added = 0;
+      for (const match of rest.matchAll(/(\d+(?:\.\d+)?)\s*ms/g)) {
+        hop.rtts.push(Number(match[1]));
+        added++;
+      }
+      const stars = (rest.match(/(?:^|\s)\*(?=\s|$)/g) ?? []).length;
+      hop.probes += added + stars;
+      collectHosts(hop, rest);
+      collectAnnotations(hop, rest);
+    }
+
+    return out;
+  }
+
+  function parseWindows(lines: string[]): Parsed {
+    const out: Parsed = {
+      format: 'tracert',
+      target: null,
+      source: null,
+      hopLimit: null,
+      complete: false,
+      hops: [],
+      skipped: 0,
+    };
+
+    for (const line of lines) {
+      const header = /^Tracing route to\s+(\S+)(?:\s+\[([^\]]+)\])?/i.exec(line.trim());
+      if (header) {
+        const ip = header[2] ?? (isIp(header[1]) ? header[1] : undefined);
+        out.target = { name: header[1] === ip ? undefined : header[1], ip };
+        continue;
+      }
+
+      const limit = /maximum of\s+(\d+)\s+hops/i.exec(line);
+      if (limit) {
+        out.hopLimit = Number(limit[1]);
+        continue;
+      }
+
+      if (/^\s*Trace complete/i.test(line)) {
+        out.complete = true;
+        continue;
+      }
+
+      const numbered = /^\s*(\d{1,2})\s+(.*)$/.exec(line);
+      if (!numbered) {
+        if (line.trim()) out.skipped++;
+        continue;
+      }
+
+      const hop = emptyHop(Number(numbered[1]));
+      const rest = numbered[2];
+
+      for (const match of rest.matchAll(/(<)?\s*(\d+(?:\.\d+)?)\s*ms/g)) {
+        hop.rtts.push(match[1] ? 0.5 : Number(match[2]));
+      }
+      const stars = (rest.match(/(?:^|\s)\*(?=\s|$)/g) ?? []).length;
+      hop.probes = hop.rtts.length + stars;
+
+      const bracketed = /([A-Za-z0-9_][A-Za-z0-9._-]*)\s+\[([^\]]+)\]/g;
+      for (const match of rest.matchAll(bracketed)) addHost(hop, match[2], match[1]);
+      for (const token of rest.replace(bracketed, ' ').split(/\s+/)) {
+        const clean = token.replace(/[[\]]/g, '');
+        if (isIp(clean)) addHost(hop, clean);
+      }
+
+      if (/host unreachable/i.test(rest)) hop.annotations.push('H');
+      if (/net(work)? unreachable/i.test(rest)) hop.annotations.push('N');
+      if (/protocol unreachable/i.test(rest)) hop.annotations.push('P');
+
+      out.hops.push(hop);
+    }
+
+    return out;
+  }
+
+  function parseMtr(lines: string[]): Parsed {
+    const out: Parsed = {
+      format: 'mtr',
+      target: null,
+      source: null,
+      hopLimit: null,
+      complete: false,
+      hops: [],
+      skipped: 0,
+    };
+
+    for (const line of lines) {
+      const host = /^HOST:\s*(\S+)/i.exec(line.trim());
+      if (host) {
+        out.source = host[1];
+        continue;
+      }
+
+      const row =
+        /^\s*(\d{1,2})\.\|--\s+(\S+)\s+([\d.]+)%\s+(\d+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)/.exec(
+          line
+        );
+      if (!row) {
+        if (line.trim() && !/^Start:/i.test(line.trim())) out.skipped++;
+        continue;
+      }
+
+      const hop = emptyHop(Number(row[1]));
+      const address = row[2];
+      hop.lossPct = Number(row[3]);
+      hop.probes = Number(row[4]);
+
+      if (address !== '???' && address !== '?') {
+        if (isIp(address)) addHost(hop, address);
+        else addHost(hop, undefined, address);
+        // Columns after Snt are Last, Avg, Best, Wrst — mtr already aggregates.
+        const avgCol = Number(row[6]);
+        const bestCol = Number(row[7]);
+        hop.stats = {
+          avg: Number.isFinite(avgCol) ? avgCol : Number(row[5]),
+          best: Number.isFinite(bestCol) ? bestCol : Number(row[5]),
+        };
+      }
+
+      out.hops.push(hop);
+    }
+
+    return out;
+  }
+
+  function parse(text: string): Parsed {
+    const lines = text.replace(/\r/g, '').split('\n');
+
+    let parsed: Parsed;
+    if (lines.some((l) => /^\s*\d{1,2}\.\|--/.test(l))) parsed = parseMtr(lines);
+    else if (lines.some((l) => /Tracing route to|Request timed out|Trace complete/i.test(l)))
+      parsed = parseWindows(lines);
+    else parsed = parseUnix(lines);
+
+    parsed.hops.sort((a, b) => a.index - b.index);
+    for (const hop of parsed.hops) {
+      hop.responded = hop.rtts.length > 0 || hop.hosts.length > 0;
+      if (parsed.format !== 'mtr') {
+        hop.probes = Math.max(hop.probes, hop.rtts.length, 1);
+        hop.lossPct = ((hop.probes - hop.rtts.length) / hop.probes) * 100;
+      }
+    }
+
+    return parsed;
+  }
+
+  // -------------------------------------------------------------- analysis
+
+  interface Analysis {
+    level: Level;
+    headline: string;
+    detail: string;
+    lastResponding: Hop | null;
+    findings: Finding[];
+    reached: boolean;
+  }
+
+  function matchesTarget(hop: Hop, target: HostRef | null): boolean {
+    if (!target) return false;
+    return hop.hosts.some(
+      (h) =>
+        (target.ip && h.ip === target.ip) ||
+        (target.name && h.name && h.name.toLowerCase() === target.name.toLowerCase()) ||
+        (target.name && h.ip === target.name)
+    );
+  }
+
+  function analyse(parsed: Parsed, expectedRaw: string): Analysis {
+    const expected = expectedRaw.trim().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
+    const target: HostRef | null = expected
+      ? isIp(expected)
+        ? { ip: expected, name: parsed.target?.name }
+        : { name: expected, ip: parsed.target?.ip }
+      : parsed.target;
+
+    const hops = parsed.hops;
+    const responding = hops.filter((h) => h.responded);
+    const last = responding.length ? responding[responding.length - 1] : null;
+    const lastIndexInList = last ? hops.indexOf(last) : -1;
+    const trailingSilent = last ? hops.length - lastIndexInList - 1 : hops.length;
+
+    const rejecting = hops.find((h) => h.annotations.some((code) => REJECTING.has(code)));
+    const reached = last ? matchesTarget(last, target) : false;
+    const targetLabel = target?.name ?? target?.ip ?? null;
+
+    const findings: Finding[] = [];
+    let level: Level;
+    let headline: string;
+    let detail: string;
+
+    if (rejecting) {
+      const code = rejecting.annotations.find((c) => REJECTING.has(c))!;
+      const meaning = ANNOTATIONS[code] ?? `ICMP unreachable code ${code}`;
+      level = 'bad';
+      headline = `Traffic is being rejected at hop ${rejecting.index} — ${hopLabel(rejecting)}`;
+      detail =
+        `That hop answered your probe with an ICMP error (!${code} — ${meaning}) instead of ` +
+        `forwarding it. This is a device making a decision, not a broken link: an ACL, a security ` +
+        `group, a firewall policy or a missing return route. Packets get that far and no further.`;
+    } else if (reached && last) {
+      // Probe loss at the destination only means something with enough samples
+      // behind it — three traceroute probes are far too few to judge.
+      const lossy = last.probes >= 5 && last.lossPct >= 5;
+      level = lossy ? 'warn' : 'good';
+      headline = lossy
+        ? `Traffic reaches the destination, but loses ${last.lossPct.toFixed(0)}% of probes there — hop ${last.index}, ${hopLabel(last)}`
+        : `Traffic reaches the destination — hop ${last.index}, ${hopLabel(last)}`;
+      detail =
+        `The last hop that replied is the address you were aiming for, so the forward path is ` +
+        `complete end to end. ` +
+        (lossy
+          ? `The route is not the problem — the endpoint is. Losing ${last.lossPct.toFixed(0)}% of ` +
+            `packets at the destination will show up as stalls, retransmits and timeouts in ` +
+            `anything running over it.`
+          : `Anything failing above this is at the application or transport layer, not in the route.`);
+    } else if (last && trailingSilent > 0) {
+      level = targetLabel ? 'bad' : 'warn';
+      headline = `Traffic is last confirmed at hop ${last.index} — ${hopLabel(last)}`;
+      detail =
+        `After that, ${trailingSilent} hop${trailingSilent === 1 ? '' : 's'} returned nothing at ` +
+        `all` +
+        (targetLabel ? ` and ${targetLabel} never answered` : '') +
+        `. Either the packets are being dropped somewhere past hop ${last.index}, or the ` +
+        `remaining devices are simply configured not to answer traceroute probes.`;
+    } else if (last) {
+      level = 'info';
+      headline = `The trace ends at hop ${last.index} — ${hopLabel(last)}`;
+      detail = targetLabel
+        ? `Every hop in the output replied, but none of them matches ${targetLabel}. The ` +
+          `trace probably stopped early, or the destination answered from a different address.`
+        : `Every hop in the output replied and there is no silent tail. Fill in the destination ` +
+          `above and I can confirm whether that last hop is actually the endpoint you wanted.`;
+    } else {
+      level = 'bad';
+      headline = 'Nothing on this path answered';
+      detail =
+        `Not one hop returned a reply — not even your first gateway. That usually means the ` +
+        `probes never left the host: a local firewall, a down interface, or a VPN client ` +
+        `swallowing the traffic.`;
+    }
+
+    // ---------------------------------------------------------- findings
+
+    const zoneOfHop = (hop: Hop) => zoneOf(hop.hosts[0]?.ip).zone;
+
+    // Where your own network ends: the leading run of private addresses.
+    const firstPublic = responding.find((h) => zoneOfHop(h) === 'public');
+    const leadingLan: Hop[] = [];
+    for (const hop of responding) {
+      if (zoneOfHop(hop) !== 'lan') break;
+      leadingLan.push(hop);
+    }
+    const firstOutside = responding[leadingLan.length];
+    if (leadingLan.length && firstOutside) {
+      findings.push({
+        level: 'info',
+        html:
+          `<b>Your own network ends at hop ${leadingLan[leadingLan.length - 1].index}.</b> ` +
+          `Hop ${firstOutside.index} (${esc(hopLabel(firstOutside))}) is the first address beyond ` +
+          `it, so everything from there on is somebody else's kit — you can observe it, not fix it.`,
+      });
+    }
+
+    const cgnat = responding.find((h) => zoneOfHop(h) === 'cgnat');
+    if (cgnat) {
+      findings.push({
+        level: 'info',
+        html:
+          `<b>Hop ${cgnat.index} is carrier-grade NAT (100.64/10).</b> That is your ISP's shared ` +
+          `address space — normal on broadband and mobile, but it does mean inbound connections ` +
+          `to this host will not work without a tunnel.`,
+      });
+    }
+
+    // Private addressing after public: tunnel or remote internal network.
+    const publicIndex = firstPublic ? hops.indexOf(firstPublic) : -1;
+    const privateAfterPublic =
+      publicIndex >= 0 ? responding.find((h) => hops.indexOf(h) > publicIndex && zoneOfHop(h) === 'lan') : undefined;
+    if (privateAfterPublic) {
+      findings.push({
+        level: 'info',
+        html:
+          `<b>Hop ${privateAfterPublic.index} is a private address again after public ones.</b> ` +
+          `You are crossing into someone's internal network — a VPN tunnel, an MPLS core, or the ` +
+          `far side of a cloud interconnect.`,
+      });
+    }
+
+    // Mid-path silence is benign.
+    const midGaps = hops.filter(
+      (h, i) => !h.responded && i < lastIndexInList && !h.annotations.length
+    );
+    if (midGaps.length) {
+      const list = midGaps.map((h) => h.index).join(', ');
+      findings.push({
+        level: 'good',
+        html:
+          `<b>Hop${midGaps.length === 1 ? '' : 's'} ${list} stayed quiet, but later hops replied.</b> ` +
+          `Those routers just don't send ICMP time-exceeded messages. Your packets passed straight ` +
+          `through them — this is not the fault.`,
+      });
+    }
+
+    // Latency jump.
+    const timed = responding.filter(hasTiming);
+    let jump: { from: Hop; to: Hop; delta: number } | null = null;
+    for (let i = 1; i < timed.length; i++) {
+      const previous = timed[i - 1];
+      const hop = timed[i];
+      const delta = hopAvg(hop) - hopAvg(previous);
+      if (delta >= 30 && (!jump || delta > jump.delta)) jump = { from: previous, to: hop, delta };
+    }
+    if (jump) {
+      findings.push({
+        level: 'warn',
+        html:
+          `<b>Latency jumps ${ms(jump.delta)} between hop ${jump.from.index} and hop ` +
+          `${jump.to.index}.</b> A step that size is usually distance — a long-haul or submarine ` +
+          `link — and it is only a problem if it is new. Every hop after it inherits the delay.`,
+      });
+    }
+
+    // Sustained loss vs. ICMP rate limiting. Loss that a later hop does not
+    // inherit was never real: the router just throttled its own replies.
+    const transient: Hop[] = [];
+    const sustained: Hop[] = [];
+    for (const hop of responding.filter((h) => h.lossPct >= 10)) {
+      const laterClean = responding.some(
+        (h) => hops.indexOf(h) > hops.indexOf(hop) && h.lossPct < 5
+      );
+      (laterClean ? transient : sustained).push(hop);
+    }
+
+    if (transient.length) {
+      const list = transient.map((h) => h.index).join(', ');
+      findings.push({
+        level: 'good',
+        html:
+          `<b>Hop${transient.length === 1 ? '' : 's'} ${list} report loss that later hops don't ` +
+          `inherit.</b> Loss that does not carry forward is a router rate-limiting its own ICMP ` +
+          `replies, not dropping your traffic. Ignore it.`,
+      });
+    }
+
+    if (sustained.length) {
+      const first = sustained[0];
+      const atEnd = first === last;
+      findings.push({
+        level: 'bad',
+        html: atEnd
+          ? `<b>The destination itself is dropping ${first.lossPct.toFixed(0)}% of probes.</b> ` +
+            `Nothing downstream can inherit it, so this is either genuine loss on the last mile ` +
+            `into ${esc(hopLabel(first))} or an overloaded endpoint. The path in front of it is fine.`
+          : `<b>Loss starts at hop ${first.index} (${first.lossPct.toFixed(0)}%) and every hop ` +
+            `after it inherits it.</b> That pattern is real packet loss, not ICMP throttling. ` +
+            `Hop ${first.index} — ${esc(hopLabel(first))} — is where to point the finger.`,
+      });
+    }
+
+    // Routing loop.
+    const seen = new Map<string, number>();
+    for (const hop of responding) {
+      const key = hop.hosts[0]?.ip ?? hop.hosts[0]?.name;
+      if (!key) continue;
+      const before = seen.get(key);
+      if (before !== undefined && hop.index - before > 1) {
+        findings.push({
+          level: 'bad',
+          html:
+            `<b>${esc(key)} appears at both hop ${before} and hop ${hop.index}.</b> The packets are ` +
+            `going in a circle — a routing loop, usually a redistribution or static-route mistake.`,
+        });
+        break;
+      }
+      seen.set(key, hop.index);
+    }
+
+    // Hop limit exhausted.
+    if (parsed.hopLimit && hops.length >= parsed.hopLimit && !reached) {
+      findings.push({
+        level: 'warn',
+        html:
+          `<b>The trace used all ${parsed.hopLimit} hops without arriving.</b> Either the path is ` +
+          `genuinely longer than the limit, or the packets are looping. Re-run with a higher ` +
+          `<code>-m</code> / <code>-h</code> value to tell the two apart.`,
+      });
+    }
+
+    // The standing caveat for a silent tail.
+    if (!reached && !rejecting && last && trailingSilent > 0) {
+      findings.push({
+        level: 'info',
+        html:
+          `<b>A silent tail is not proof the service is down.</b> Firewalls and hardened hosts drop ` +
+          `UDP and ICMP probes while still accepting real connections. Before escalating, test the ` +
+          `actual port: <code>traceroute -T -p 443 ${esc(targetLabel ?? 'host')}</code> or ` +
+          `<code>nc -vz ${esc(targetLabel ?? 'host')} 443</code>.`,
+      });
+    }
+
+    if (parsed.format === 'mtr' && !expected) {
+      findings.push({
+        level: 'info',
+        html:
+          `<b>mtr reports don't name the target.</b> Type the destination in the box above so the ` +
+          `verdict can say whether the final hop is really the endpoint.`,
+      });
+    }
+
+    return { level, headline, detail, lastResponding: last, findings, reached };
+  }
+
+  // ------------------------------------------------------------- rendering
+
+  const input = $<HTMLTextAreaElement>('route');
+  const expectedInput = $<HTMLInputElement>('expected');
+  const status = $('parse-status');
+  const results = $('results');
+  const hopsBody = $<HTMLTableSectionElement>('hopsbody');
+
+  let reportText = '';
+
+  function setStatus(message: string, kind: 'ok' | 'error' | '' = '') {
+    if (!status) return;
+    status.textContent = message;
+    status.className = `tool-status${kind ? ` tool-status--${kind}` : ''}`;
+  }
+
+  function renderStrip(parsed: Parsed, analysis: Analysis) {
+    const strip = $('strip');
+    if (!strip) return;
+    strip.replaceChildren();
+
+    for (const hop of parsed.hops) {
+      const cell = document.createElement('span');
+      cell.className = 'strip__cell';
+      cell.dataset.state = stateOf(hop);
+      if (hop === analysis.lastResponding) cell.dataset.last = 'true';
+      cell.textContent = String(hop.index);
+      cell.title = `${hop.index}. ${hopLabel(hop)}`;
+      strip.appendChild(cell);
+    }
+  }
+
+  function renderHops(parsed: Parsed, analysis: Analysis) {
+    if (!hopsBody) return;
+    hopsBody.replaceChildren();
+
+    for (const hop of parsed.hops) {
+      const state = stateOf(hop);
+      const row = document.createElement('tr');
+      row.dataset.state = state;
+      if (hop === analysis.lastResponding) row.dataset.last = 'true';
+
+      const cells: string[] = [];
+      cells.push(String(hop.index));
+
+      if (!hop.hosts.length) {
+        cells.push('<span class="hop-ip">no reply</span>');
+      } else {
+        const [first, ...rest] = hop.hosts;
+        const primary = first.name
+          ? `<span class="hop-name">${esc(first.name)}</span> <span class="hop-ip">${esc(first.ip ?? '')}</span>`
+          : `<span class="hop-name">${esc(first.ip ?? '')}</span>`;
+        const extra = rest.length
+          ? `<span class="hop-extra">also answered as ${esc(
+              rest.map((h) => h.ip ?? h.name ?? '?').join(', ')
+            )}</span>`
+          : '';
+        cells.push(primary + extra);
+      }
+
+      cells.push(`<span class="zone">${esc(zoneOf(hop.hosts[0]?.ip).label)}</span>`);
+      cells.push(hasTiming(hop) ? ms(hopBest(hop)) : '—');
+      cells.push(hasTiming(hop) ? ms(hopAvg(hop)) : '—');
+      cells.push(hop.responded ? `${hop.lossPct.toFixed(0)}%` : '—');
+
+      const annotation = hop.annotations
+        .map((code) => `!${code} ${ANNOTATIONS[code] ?? ''}`.trim())
+        .join(', ');
+      const stateText =
+        state === 'blocked'
+          ? `rejected — ${annotation}`
+          : state === 'silent'
+            ? 'silent'
+            : state === 'partial'
+              ? 'replied, losing probes'
+              : 'replied';
+      cells.push(`<span class="state state--${state}">${esc(stateText)}</span>`);
+
+      row.innerHTML = cells
+        .map((html, i) => `<td${i === 1 ? ' class="hop-host"' : ''}>${html}</td>`)
+        .join('');
+      hopsBody.appendChild(row);
+    }
+  }
+
+  function renderSummary(parsed: Parsed, analysis: Analysis) {
+    const list = $('summary');
+    if (!list) return;
+    list.replaceChildren();
+
+    const responding = parsed.hops.filter((h) => h.responded);
+    const silent = parsed.hops.length - responding.length;
+    const target = parsed.target
+      ? [parsed.target.name, parsed.target.ip].filter(Boolean).join(' ')
+      : (expectedInput?.value.trim() || 'not stated');
+
+    const formatName =
+      parsed.format === 'tracert'
+        ? 'Windows tracert'
+        : parsed.format === 'mtr'
+          ? 'mtr report'
+          : 'traceroute';
+
+    const rows: [string, string][] = [
+      ['Format detected', formatName],
+      ['Destination', target],
+      ['Hops in output', String(parsed.hops.length)],
+      ['Hops that replied', `${responding.length} (${silent} silent)`],
+      [
+        'Last confirmed hop',
+        analysis.lastResponding ? `${analysis.lastResponding.index} — ${hopLabel(analysis.lastResponding)}` : 'none',
+      ],
+      ['Destination reached', analysis.reached ? 'yes' : 'not confirmed'],
+    ];
+
+    if (analysis.lastResponding && hasTiming(analysis.lastResponding)) {
+      rows.push(['Round trip to that hop', ms(hopAvg(analysis.lastResponding))]);
+    }
+    if (parsed.source) rows.push(['Traced from', parsed.source]);
+
+    for (const [term, value] of rows) {
+      const wrapper = document.createElement('div');
+      const dt = document.createElement('dt');
+      dt.textContent = term;
+      const dd = document.createElement('dd');
+      dd.textContent = value;
+      wrapper.append(dt, dd);
+      list.appendChild(wrapper);
+    }
+
+    reportText = [
+      `Traceroute analysis (${formatName})`,
+      ...rows.map(([term, value]) => `${term}: ${value}`),
+      '',
+      analysis.headline,
+      analysis.detail,
+      '',
+      ...analysis.findings.map((f) => `- ${f.html.replace(/<[^>]+>/g, '')}`),
+    ].join('\n');
+  }
+
+  function renderFindings(analysis: Analysis) {
+    const list = $('findings');
+    const panel = $('findings-panel');
+    if (!list || !panel) return;
+
+    list.replaceChildren();
+    panel.hidden = analysis.findings.length === 0;
+
+    const marks: Record<Level, string> = { good: '✓', warn: '!', bad: '✗', info: '·' };
+
+    for (const finding of analysis.findings) {
+      const item = document.createElement('li');
+      item.dataset.level = finding.level;
+      item.innerHTML = `<span class="finding__mark">${marks[finding.level]}</span><span>${finding.html}</span>`;
+      list.appendChild(item);
+    }
+  }
+
+  function run() {
+    const text = input?.value ?? '';
+
+    if (!text.trim()) {
+      setStatus('');
+      if (results) results.hidden = true;
+      return;
+    }
+
+    const parsed = parse(text);
+
+    if (!parsed.hops.length) {
+      setStatus(
+        'No hop lines found. Paste the raw output of traceroute, tracert or mtr --report, header line and all.',
+        'error'
+      );
+      if (results) results.hidden = true;
+      return;
+    }
+
+    const analysis = analyse(parsed, expectedInput?.value ?? '');
+
+    const panel = $('verdict-panel');
+    if (panel) panel.dataset.level = analysis.level;
+    const headline = $('verdict-headline');
+    if (headline) headline.textContent = analysis.headline;
+    const detail = $('verdict-detail');
+    if (detail) detail.textContent = analysis.detail;
+
+    renderStrip(parsed, analysis);
+    renderSummary(parsed, analysis);
+    renderFindings(analysis);
+    renderHops(parsed, analysis);
+
+    setStatus(
+      `Parsed ${parsed.hops.length} hops${parsed.skipped ? ` — ${parsed.skipped} line${parsed.skipped === 1 ? '' : 's'} ignored` : ''}.`,
+      'ok'
+    );
+    if (results) results.hidden = false;
+  }
+
+  // --------------------------------------------------------------- samples
+
+  const SAMPLES: Record<string, { trace: string; expected: string }> = {
+    unix: {
+      expected: '',
+      trace: `traceroute to surajkr.dev (185.199.108.153), 30 hops max, 60 byte packets
+ 1  _gateway (192.168.1.1)  0.512 ms  0.478 ms  0.455 ms
+ 2  100.64.0.1 (100.64.0.1)  8.221 ms  8.114 ms  8.402 ms
+ 3  broadband-static.mum.example.net (49.44.112.1)  11.902 ms  12.114 ms  11.884 ms
+ 4  * * *
+ 5  * * *
+ 6  72.14.242.1 (72.14.242.1)  24.551 ms  24.118 ms  23.998 ms
+ 7  ae-11.edge3.london.example.net (195.66.224.21)  132.441 ms  131.882 ms  132.010 ms
+ 8  185.199.108.153 (185.199.108.153)  134.221 ms  133.994 ms  134.115 ms`,
+    },
+    windows: {
+      expected: '',
+      trace: `Tracing route to api.internal.example.com [10.42.7.20]
+over a maximum of 30 hops:
+
+  1     1 ms     1 ms     1 ms  192.168.0.1
+  2     4 ms     3 ms     4 ms  10.10.0.1
+  3    12 ms    11 ms    12 ms  fw-edge.corp.example.com [10.20.0.1]
+  4     *        *        *     Request timed out.
+  5     *        *        *     Request timed out.
+  6     *        *        *     Request timed out.
+  7     *        *        *     Request timed out.
+  8     *        *        *     Request timed out.`,
+    },
+    mtr: {
+      expected: '142.250.183.14',
+      trace: `Start: 2026-08-12T09:14:22+0530
+HOST: build-runner-01              Loss%   Snt   Last   Avg  Best  Wrst StDev
+  1.|-- 192.168.1.1                 0.0%    10    0.6   0.7   0.5   1.1   0.2
+  2.|-- 100.64.0.1                  0.0%    10    9.1   9.4   8.7  11.2   0.8
+  3.|-- 49.44.112.1                20.0%    10   12.0  12.6  11.8  15.9   1.3
+  4.|-- ???                        100.0%    10    0.0   0.0   0.0   0.0   0.0
+  5.|-- 72.14.242.1                 0.0%    10   24.4  24.9  23.9  27.1   1.0
+  6.|-- 142.250.183.14             38.0%    10  118.7 121.3 116.2 149.8   9.9`,
+    },
+  };
+
+  // ------------------------------------------------------------------ wire
+
+  input?.addEventListener('input', run);
+  expectedInput?.addEventListener('input', run);
+
+  document.querySelectorAll<HTMLButtonElement>('.sample').forEach((button) => {
+    button.addEventListener('click', () => {
+      const sample = SAMPLES[button.dataset.sample ?? ''];
+      if (!sample || !input) return;
+      input.value = sample.trace;
+      if (expectedInput) expectedInput.value = sample.expected;
+      run();
+    });
+  });
+
+  $('clear-btn')?.addEventListener('click', () => {
+    if (input) input.value = '';
+    if (expectedInput) expectedInput.value = '';
+    run();
+    input?.focus();
+  });
+
+  $('copy-report')?.addEventListener('click', async (event) => {
+    const button = event.currentTarget as HTMLButtonElement;
+    const original = button.textContent;
+    try {
+      await navigator.clipboard.writeText(reportText);
+      button.textContent = 'Copied ✓';
+    } catch {
+      button.textContent = 'Copy failed';
+    }
+    setTimeout(() => {
+      button.textContent = original;
+    }, 1600);
+  });
+
+  run();
+</script>

@@ -29,6 +29,16 @@ const { name, size = '1.25rem' } = Astro.props;
     )
   }
   {
+    name === 'route' && (
+      <>
+        <circle cx="5" cy="19" r="2.5" />
+        <circle cx="19" cy="5" r="2.5" />
+        <path d="M8 19h5a4 4 0 0 0 4-4V8" />
+        <path d="M12 12h.01M9.5 15h.01" />
+      </>
+    )
+  }
+  {
     name === 'code' && (
       <>
         <path d="m8 6-6 6 6 6M16 6l6 6-6 6" />
