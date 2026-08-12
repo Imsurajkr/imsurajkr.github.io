@@ -69,7 +69,8 @@ jobs:
           for page in atlas file-investigator high-cpu memory-pressure disk-full \
                       process-stuck port-unreachable dns-failure tls-failure \
                       permission-denied crashloopbackoff imagepullbackoff \
-                      oomkilled bad-gateway; do
+                      oomkilled bad-gateway certificate-expiry \
+                      systemd-unit-failed; do
             test -f "dist/incident-room/${page}.html" || { echo "::error::missing /incident-room/${page}"; exit 1; }
           done
           echo "Build verified: $(find dist -name '*.html' | wc -l) HTML pages."

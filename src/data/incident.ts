@@ -921,6 +921,275 @@ export const playbooks: Playbook[] = [
       },
     ],
   },
+
+  // ------------------------------------------------------ certificate expiry
+  {
+    slug: 'certificate-expiry',
+    title: 'A certificate expired',
+    symptom: 'Clients started rejecting the certificate, or it expires shortly',
+    blurb:
+      'Find which certificate in the chain actually expired, why a renewal did not take effect, and every other place the same certificate is deployed.',
+    domain: 'TLS',
+    keywords: [
+      'expired certificate',
+      'certificate renewal',
+      'letsencrypt',
+      'notAfter',
+      'intermediate expired',
+      'reload',
+      'clock skew',
+    ],
+    minutes: 7,
+    entry: 'confirm',
+    steps: [
+      {
+        id: 'confirm',
+        title: 'Read the dates from what is actually being served',
+        why: 'The certificate on disk and the certificate in the server’s memory are different things, and only one of them is reaching clients. Always read it off the live endpoint before touching anything.',
+        run: [
+          'echo | openssl s_client -connect <host>:443 -servername <host> 2>/dev/null | openssl x509 -noout -subject -dates',
+          'curl -sv https://<host> 2>&1 | grep -E "expire|subject|issuer"',
+          'openssl x509 -in /etc/ssl/certs/server.crt -noout -dates   # what is on disk, for comparison',
+        ],
+        look: '`notAfter` on the served certificate, and whether it matches the file on disk. A difference between the two is the whole answer.',
+        caution:
+          'Without `-servername` you get the default certificate of whatever is on that address, which on shared infrastructure is a different certificate entirely.',
+        branches: [
+          { when: 'Served certificate has expired', then: 'renewed' },
+          { when: 'Served cert is valid but clients still fail', then: 'chain' },
+          {
+            when: 'Disk is newer than what is served',
+            then: 'found:reload',
+            outcome: 'Renewed on disk, but the running process is still holding the old one.',
+            fix: [
+              'Every terminator caches certificates in memory at startup. Renewal writes a file; it does not tell the process.',
+              'Reload rather than restart where you can: `systemctl reload nginx`, `haproxy -sf`, or `apachectl graceful`.',
+              'Add the reload to the renewal hook so this never recurs — certbot has `--deploy-hook`, and cert-manager restarts pods via a reloader.',
+              'Verify from outside afterwards. A reload that silently failed looks identical to one that worked.',
+            ],
+          },
+          {
+            when: 'Valid, but expiring within days',
+            then: 'found:inventory',
+            outcome: 'Not broken yet. Renew, then find everything else on the same clock.',
+            fix: [
+              'Renew now rather than at the weekend it expires.',
+              'Inventory what else is close: `for h in host1 host2; do echo -n "$h "; echo | openssl s_client -connect $h:443 -servername $h 2>/dev/null | openssl x509 -noout -enddate; done`.',
+              'Check Kubernetes secrets too: `kubectl get secret -A -o json | jq -r \'.items[]|select(.type=="kubernetes.io/tls")|.metadata.namespace+"/"+.metadata.name\'`.',
+              'Alert on days remaining, not on failure. Thirty days of warning is the difference between a task and an incident.',
+            ],
+          },
+        ],
+      },
+      {
+        id: 'renewed',
+        title: 'Establish whether a renewal was even attempted',
+        why: 'An expired certificate is usually not a TLS problem at all — it is an automation problem that failed quietly weeks ago. Find out whether the renewal ran and failed, or never ran.',
+        run: [
+          'certbot certificates',
+          'systemctl status certbot.timer snap.certbot.renew.timer',
+          'journalctl -u certbot -S -30d --no-pager | tail -40',
+          'kubectl describe certificate <name> -n <ns>   # cert-manager',
+        ],
+        look: 'The last renewal attempt and its result. For cert-manager, the `Status` conditions and events on the Certificate object.',
+        branches: [
+          {
+            when: 'Renewal ran and failed',
+            then: 'found:renewfail',
+            outcome: 'The renewal attempted and was refused.',
+            fix: [
+              'Read the actual error. An HTTP-01 challenge needs /.well-known/acme-challenge reachable from the internet — a redirect to HTTPS breaks it.',
+              'A DNS-01 challenge fails on stale credentials or a zone the token cannot write to.',
+              'Let’s Encrypt rate limits are per registered domain and per week; a loop of failed attempts can lock you out for days. Use the staging endpoint while fixing.',
+              'On cert-manager, walk it backwards: Certificate → CertificateRequest → Order → Challenge, and read the events at each level.',
+            ],
+          },
+          {
+            when: 'Renewal never ran',
+            then: 'found:norenew',
+            outcome: 'The automation is not running.',
+            fix: [
+              'Check the timer is enabled and actually firing: `systemctl list-timers | grep -i cert`.',
+              'A timer that is enabled but never fires usually means the unit failed at boot — the systemd playbook covers that.',
+              'Renew manually to restore service first: `certbot renew --force-renewal`, then reload the terminator.',
+            ],
+          },
+          {
+            when: 'Renewed, but only in one place',
+            then: 'found:multiple',
+            outcome: 'The certificate is deployed in more places than were renewed.',
+            fix: [
+              'TLS commonly terminates more than once: a load balancer, an ingress controller, a sidecar, and a Java truststore each hold their own copy.',
+              'Find them: `grep -rl "BEGIN CERTIFICATE" /etc --include=*.conf 2>/dev/null` and check the load balancer’s own certificate store.',
+              'A JVM truststore is separate from the OS store and needs keytool, not a file copy.',
+            ],
+          },
+        ],
+      },
+      {
+        id: 'chain',
+        title: 'Check the intermediates, not just the leaf',
+        why: 'Intermediates expire too, and on their own schedule. A perfectly valid leaf behind an expired intermediate fails for every client that does not fetch the issuer itself — which is most non-browser clients.',
+        run: [
+          'echo | openssl s_client -connect <host>:443 -servername <host> -showcerts 2>/dev/null | grep -E "^(subject|issuer|notAfter)|BEGIN"',
+          "echo | openssl s_client -connect <host>:443 -servername <host> -showcerts 2>/dev/null | awk '/BEGIN/{n++} {print > (\"cert\" n \".pem\")}'",
+          'for f in cert*.pem; do echo -n "$f "; openssl x509 -in $f -noout -subject -enddate; done',
+        ],
+        look: 'The notAfter of every certificate the server sends, not only the first one.',
+        branches: [
+          {
+            when: 'An intermediate has expired',
+            then: 'found:intermediate',
+            outcome: 'The chain contains an expired intermediate.',
+            fix: [
+              'Fetch the current intermediate from your CA and rebuild the chain file — leaf first, then intermediates, in order.',
+              'Reload the terminator afterwards, and verify from outside with `-showcerts`.',
+              'Browsers often paper over this by fetching the issuer themselves, which is why "it works for me" and every API client fails.',
+            ],
+          },
+          {
+            when: 'A root in the trust store has expired',
+            then: 'found:root',
+            outcome: 'The client’s trust store contains an expired root.',
+            fix: [
+              'The DST Root CA X3 expiry in 2021 broke a generation of old clients exactly this way.',
+              'Update the client’s CA bundle: `update-ca-certificates`, or a newer ca-certificates package in the container image.',
+              'On old OpenSSL, an expired root anywhere in the path fails the chain even when an alternative valid path exists.',
+            ],
+          },
+          {
+            when: 'Every certificate is in date',
+            then: 'handover:tls',
+            handoff: 'tls-failure',
+          },
+        ],
+      },
+    ],
+  },
+
+  // -------------------------------------------------------- systemd failures
+  {
+    slug: 'systemd-unit-failed',
+    title: 'A systemd unit will not start',
+    symptom: 'systemctl says failed, or the service keeps restarting',
+    blurb:
+      'Read the Result and the exit status, which name the cause precisely — systemd’s own codes distinguish a missing binary from a bad user from a readiness timeout.',
+    domain: 'Linux',
+    keywords: [
+      'systemctl',
+      'failed',
+      'journalctl',
+      'start-limit-hit',
+      'exit code',
+      'unit',
+      'service',
+      'restart loop',
+    ],
+    minutes: 6,
+    entry: 'status',
+    steps: [
+      {
+        id: 'status',
+        title: 'Read the Result and the exit status',
+        why: 'systemd records why it gave up in a single field. `Result=` plus the status code separates a crash from a timeout from a unit file it could not even execute, and those have nothing in common.',
+        run: [
+          'systemctl status <unit> --no-pager -l',
+          'systemctl show <unit> -p Result -p ExecMainStatus -p ExecMainCode -p NRestarts',
+          'systemctl is-failed <unit>',
+        ],
+        look: 'The `Result=` value, and `status=` in the Main process line. systemd’s own codes — 203/EXEC, 200/CHDIR, 217/USER — name the problem outright.',
+        branches: [
+          { when: 'Result=exit-code, status is 203/EXEC', then: 'found:exec', outcome: 'systemd could not execute the binary at all.', fix: ['ExecStart must be an absolute path — systemd does not use your PATH.', 'Check it exists and is executable: `ls -l <path>` and `test -x <path>`.', 'A script with a bad shebang, or CRLF line endings, produces exactly this and is invisible in a diff. Check with `file <script>`.', 'On SELinux, the binary may be mislabelled — `ausearch -m avc -ts recent`.'] },
+          { when: 'Result=exit-code, status is 200/CHDIR', then: 'found:chdir', outcome: 'The WorkingDirectory does not exist.', fix: ['Create it, or remove the directive. systemd refuses to start rather than silently landing in /.', 'Prefix the path with `-` to make it non-fatal: `WorkingDirectory=-/var/lib/app`.'] },
+          { when: 'Result=exit-code, status is 217/USER', then: 'found:user', outcome: 'The User= account does not exist.', fix: ['Create the account, or use `DynamicUser=yes` and let systemd manage it.', 'A package that creates its user in a postinstall script leaves this behind when the unit is installed by hand.'] },
+          { when: 'Result=exit-code, application status 1 or 2', then: 'logs' },
+          { when: 'Result=timeout', then: 'found:timeout', outcome: 'The service never told systemd it was ready.', fix: ['With `Type=notify`, systemd waits for an sd_notify(READY=1) the service must actually send. A service that does not support it must not use notify.', 'With `Type=forking`, systemd waits for the parent to exit and needs the right PIDFile. Most modern services should use `Type=simple` or `exec` and stay in the foreground.', 'If startup is genuinely slow, raise `TimeoutStartSec=` rather than changing the type.'] },
+          { when: 'Result=signal, or killed', then: 'found:signal', outcome: 'The process was killed by a signal.', fix: ['SIGKILL after a stop request means it ignored SIGTERM until `TimeoutStopSec` ran out — the shutdown handler is the bug.', 'SIGSEGV or SIGABRT is a crash: look for a core dump with `coredumpctl list` and `coredumpctl info <pid>`.'] },
+          { when: 'Result=oom-kill', then: 'handover:oom', handoff: 'memory-pressure' },
+          { when: 'start-limit-hit', then: 'found:startlimit', outcome: 'systemd stopped trying because it restarted too often.', fix: ['This is a symptom of the restart loop, not its cause. The real failure is in the attempts before it.', 'Look at the earlier attempts: `journalctl -u <unit> -S -1h --no-pager`.', 'Clear the counter to try again: `systemctl reset-failed <unit>`.', 'Tune the window with `StartLimitIntervalSec=` and `StartLimitBurst=` once the underlying fault is fixed — not before.'] },
+          { when: 'Result=dependency', then: 'deps' },
+        ],
+      },
+      {
+        id: 'logs',
+        title: 'Read what the service itself said',
+        why: 'systemd has told you how it died; now the application tells you why. Its output is in the journal even when the service writes no log file of its own.',
+        run: [
+          'journalctl -u <unit> -n 100 --no-pager',
+          'journalctl -u <unit> -S -1h -p err --no-pager',
+          'journalctl -u <unit> -b --no-pager | head -50   # this boot only',
+          'systemd-analyze verify /etc/systemd/system/<unit>.service',
+        ],
+        look: 'The last lines before it exited, and anything from `systemd-analyze verify`, which catches unit-file mistakes systemd otherwise tolerates silently.',
+        branches: [
+          {
+            when: 'A config or dependency error in the output',
+            then: 'found:appconfig',
+            outcome: 'The application rejected its own configuration.',
+            fix: [
+              'Run the binary by hand as the same user to iterate quickly: `sudo -u <user> <ExecStart line>`.',
+              'Environment differs between your shell and the unit — systemd starts with almost nothing. Check `EnvironmentFile=` is present and readable.',
+              'Confirm what the service actually sees: `systemctl show <unit> -p Environment`.',
+            ],
+          },
+          {
+            when: 'Address already in use',
+            then: 'handover:port',
+            handoff: 'port-unreachable',
+          },
+          {
+            when: 'Permission denied in the output',
+            then: 'handover:perm',
+            handoff: 'permission-denied',
+          },
+          {
+            when: 'Nothing useful in the journal',
+            then: 'found:nolog',
+            outcome: 'The service died before it could say anything.',
+            fix: [
+              'Check the unit file was read at all: `systemctl cat <unit>`, and reload after editing with `systemctl daemon-reload`.',
+              'A sandboxing directive can kill a service before it logs — try commenting out `ProtectSystem`, `PrivateTmp` or `ProtectHome` to bisect.',
+              'Raise the detail: `SYSTEMD_LOG_LEVEL=debug systemctl start <unit>`, and check `coredumpctl list` for a crash with no output.',
+            ],
+          },
+        ],
+      },
+      {
+        id: 'deps',
+        title: 'Find the dependency that failed',
+        why: 'A unit that never ran because something it required failed will report a dependency result. The unit named in the error is where the actual fault is, and starting this one again will not help.',
+        run: [
+          'systemctl list-dependencies <unit> --failed',
+          'systemctl --failed --no-pager',
+          'systemctl list-jobs',
+          'systemd-analyze critical-chain <unit>',
+        ],
+        look: 'Which required unit is in a failed state. Requires= propagates failure; Wants= does not.',
+        branches: [
+          {
+            when: 'A required unit has failed',
+            then: 'found:dep',
+            outcome: 'The failure is in the dependency, not here.',
+            fix: [
+              'Restart this playbook against the failing unit — it is the one with the real problem.',
+              'A mount or network-online.target is the usual culprit at boot.',
+              'network-online.target only works if a wait-online service is enabled for your network manager; otherwise it completes immediately and services start too early.',
+            ],
+          },
+          {
+            when: 'Nothing failed, but ordering looks wrong',
+            then: 'found:ordering',
+            outcome: 'An ordering problem rather than a dependency failure.',
+            fix: [
+              '`Requires=` establishes a requirement, not an order. You need `After=` as well — this is the most common unit-file mistake there is.',
+              'Check what the ordering actually resolved to: `systemd-analyze critical-chain <unit>`.',
+              'For a service that needs a database on another host, ordering cannot help. The service needs to retry rather than assume.',
+            ],
+          },
+        ],
+      },
+    ],
+  },
 ];
 
 // ------------------------------------------------------------ command atlas
