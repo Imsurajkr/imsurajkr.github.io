@@ -1,0 +1,314 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import '../../styles/incident.css';
+
+const description =
+  'Give it a path and it writes the whole forensic sequence for that file: identity and timestamps, permissions and ACLs, ownership, open handles, checksums, what changed recently, and which processes are touching it.';
+
+/**
+ * Each section is a question you ask about a file, and the commands that answer
+ * it. `{p}` is replaced with the path the visitor types, `{d}` with its parent
+ * directory and `{n}` with the basename.
+ */
+const sections = [
+  {
+    id: 'identity',
+    title: 'What is it, really',
+    why: 'Before anything else, establish what kind of object you are looking at. A symlink, a socket, a device node and a regular file all behave differently, and `ls` alone will let you assume wrongly.',
+    commands: [
+      { cmd: 'stat {p}', note: 'Type, size, inode, device, links, and all three timestamps' },
+      { cmd: 'file {p}', note: 'What the content actually is, regardless of the extension' },
+      { cmd: 'readlink -f {p}', note: 'Resolve every symlink to the real path' },
+      { cmd: 'ls -la {p}', note: 'Mode, owner, size and name, including a trailing + for an ACL' },
+      { cmd: 'df -h {p}', note: 'Which filesystem it lives on — often not the one you assumed' },
+    ],
+  },
+  {
+    id: 'time',
+    title: 'When was it touched',
+    why: 'The three timestamps answer different questions. mtime is when the content changed, ctime is when the inode changed — permissions, ownership, link count — and atime is when it was last read, if the mount even records it.',
+    commands: [
+      { cmd: 'stat -c "atime %x%nmtime %y%nctime %z" {p}', note: 'The three timestamps, labelled' },
+      { cmd: 'find {d} -maxdepth 1 -newer {p} -printf "%T+ %p\\n" | sort', note: 'Everything in the directory modified after this file' },
+      { cmd: 'find {d} -maxdepth 1 -mmin -60 -type f', note: 'Neighbours changed in the last hour' },
+      { cmd: 'ls -lu {p}', note: 'Show atime instead of mtime' },
+      { cmd: 'ls -lc {p}', note: 'Show ctime instead of mtime' },
+    ],
+    gotcha:
+      'ctime is not creation time. Linux mostly does not record one at all, though `stat` will show Birth on filesystems that do. A ctime newer than mtime means metadata changed — often a chmod or chown you were not told about.',
+  },
+  {
+    id: 'access',
+    title: 'Who can reach it',
+    why: 'Reaching a file requires execute permission on every directory above it, so the mode on the file itself is only the last gate. ACLs and SELinux deny independently and neither appears in a normal listing.',
+    commands: [
+      { cmd: 'namei -l {p}', note: 'Every component of the path with its mode and owner' },
+      { cmd: 'getfacl {p}', note: 'POSIX ACLs — the mask entry is the usual surprise' },
+      { cmd: 'ls -Z {p}', note: 'SELinux label' },
+      { cmd: 'lsattr {p}', note: 'Extended attributes, including the immutable bit' },
+      { cmd: 'sudo -u <user> test -r {p} && echo readable || echo denied', note: 'Settle it empirically as the user that matters' },
+    ],
+    gotcha:
+      'A `+` at the end of the mode in `ls -l` means an ACL exists and the mode you are reading is not the whole story.',
+  },
+  {
+    id: 'handles',
+    title: 'Who has it open',
+    why: 'An open file descriptor keeps a file alive after deletion, holds its disk space, and explains why a truncate or a rotation had no effect. This is where missing disk space hides.',
+    commands: [
+      { cmd: 'lsof {p}', note: 'Every process holding this file open' },
+      { cmd: 'fuser -v {p}', note: 'The same question, with the access mode' },
+      { cmd: 'lsof +L1 | head -20', note: 'Deleted files still held open, across the whole system' },
+      { cmd: 'ls -l /proc/*/fd 2>/dev/null | grep {n}', note: 'Find the descriptor when lsof is not installed' },
+    ],
+    gotcha:
+      'If a deleted file is holding space, truncate it through the descriptor — `: > /proc/<PID>/fd/<FD>` — or restart the holder. Deleting it again does nothing; it is already unlinked.',
+  },
+  {
+    id: 'content',
+    title: 'What is inside, and has it changed',
+    why: 'A checksum settles the "is this the same file" argument in one line, and looking at the head and tail of a file is faster than opening something that turns out to be 8 GB.',
+    commands: [
+      { cmd: 'sha256sum {p}', note: 'The checksum to compare against a known-good copy' },
+      { cmd: 'head -20 {p}', note: 'The start, safely' },
+      { cmd: 'tail -50 {p}', note: 'The end, which is where a log tells you what happened' },
+      { cmd: 'wc -lc {p}', note: 'Lines and bytes' },
+      { cmd: 'xxd {p} | head', note: 'When `file` says binary and you want to see why' },
+      { cmd: 'diff <(sha256sum {p} | cut -d" " -f1) <(sha256sum /known/good | cut -d" " -f1)', note: 'Compare against a reference copy' },
+    ],
+  },
+  {
+    id: 'provenance',
+    title: 'Where it came from',
+    why: 'On a package-managed system, most files belong to a package that knows what they should look like. That turns "has this been modified" from a guess into a query.',
+    commands: [
+      { cmd: 'dpkg -S {p}', note: 'Which Debian package owns it' },
+      { cmd: 'rpm -qf {p}', note: 'Which RPM owns it' },
+      { cmd: 'dpkg -V $(dpkg -S {p} | cut -d: -f1)', note: 'Verify the package — lists files that differ from the manifest' },
+      { cmd: 'rpm -V $(rpm -qf {p})', note: 'The same verification for RPM' },
+    ],
+    gotcha:
+      'A file that belongs to a package but fails verification has been edited by hand or by a configuration tool. That is worth knowing before you spend an hour on the contents.',
+  },
+  {
+    id: 'processes',
+    title: 'What is producing it',
+    why: 'When a file is growing, changing or reappearing after deletion, the useful question is which process is responsible — and watching it is more reliable than reasoning about it.',
+    commands: [
+      { cmd: 'watch -n1 "ls -l {p}"', note: 'See it grow in real time' },
+      { cmd: 'inotifywait -m {p}', note: 'Every open, write and close as it happens' },
+      { cmd: 'auditctl -w {p} -p wa -k filewatch', note: 'Audit writes and attribute changes' },
+      { cmd: 'ausearch -k filewatch -ts recent', note: 'Read back what the audit rule caught' },
+      { cmd: 'lsof -r2 {p}', note: 'Repeat the open-handle check every 2 seconds' },
+    ],
+    gotcha:
+      'Remove the audit rule when you are done — `auditctl -W {p} -p wa -k filewatch` — or it will quietly fill the audit log.',
+  },
+];
+---
+
+<BaseLayout title="File Investigator" description={description}>
+  <div class="ir">
+    <section class="ir-hero">
+      <div class="wrap">
+        <nav class="crumbs" aria-label="Breadcrumb">
+          <a href="/incident-room">Incident Room</a>
+          <span aria-hidden="true">/</span>
+          <span>File Investigator</span>
+        </nav>
+        <p class="ir-status">Interactive</p>
+        <h1 class="ir-title ir-title--sm">File Investigator</h1>
+        <p class="ir-sub">
+          Everything worth asking about a single file, in the order you would ask it. Put a path in
+          and every command below rewrites itself for that path — ready to copy, nothing to
+          substitute by hand at three in the morning.
+        </p>
+
+        <div class="ir-search">
+          <div class="ir-search__field">
+            <span class="ir-cmd__prompt" aria-hidden="true">/</span>
+            <label class="visually-hidden" for="path">File path</label>
+            <input
+              id="path"
+              type="text"
+              autocomplete="off"
+              spellcheck="false"
+              autocapitalize="off"
+              value="/var/log/app.log"
+              placeholder="/var/log/app.log"
+            />
+            <button type="button" class="btn btn--sm" id="copy-all">Copy all</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="wrap ir-console">
+        <aside class="ir-rail no-print" aria-label="Sections">
+          <p class="ir-rail__title">Questions</p>
+          <ol class="ir-trace">
+            {
+              sections.map((s) => (
+                <li class="is-done">
+                  <a href={`#${s.id}`}>{s.title}</a>
+                </li>
+              ))
+            }
+          </ol>
+        </aside>
+
+        <main>
+          {
+            sections.map((section, i) => (
+              <article class="ir-step" id={section.id} style={i ? 'margin-top:1rem' : ''}>
+                <div class="ir-step__head">
+                  <span class="ir-step__n">{String(i + 1).padStart(2, '0')}</span>
+                  <h2 class="ir-step__title">{section.title}</h2>
+                </div>
+
+                <div class="ir-zone ir-zone--why">
+                  <span class="ir-zone__label">Why</span>
+                  <div class="ir-zone__body">
+                    <p>{section.why}</p>
+                  </div>
+                </div>
+
+                <div class="ir-zone">
+                  <span class="ir-zone__label">Run</span>
+                  <div class="ir-zone__body">
+                    {section.commands.map((c) => (
+                      <div>
+                        <div class="ir-cmd">
+                          <span class="ir-cmd__prompt">$</span>
+                          <span class="ir-cmd__text" data-template={c.cmd}>
+                            {c.cmd}
+                          </span>
+                          <button type="button" class="ir-cmd__copy">
+                            copy
+                          </button>
+                        </div>
+                        <p class="ir-use__note">{c.note}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {section.gotcha && (
+                  <div class="ir-zone ir-zone--caution">
+                    <span class="ir-zone__label">Caution</span>
+                    <div class="ir-zone__body">
+                      <p data-template={section.gotcha}>{section.gotcha}</p>
+                    </div>
+                  </div>
+                )}
+              </article>
+            ))
+          }
+        </main>
+      </div>
+    </section>
+  </div>
+</BaseLayout>
+
+<style>
+  .crumbs {
+    display: flex;
+    gap: 0.5rem;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    color: var(--fg-4);
+    margin-bottom: 1rem;
+  }
+
+  .crumbs a {
+    color: var(--fg-3);
+    text-decoration: none;
+  }
+
+  .crumbs a:hover {
+    color: var(--guard);
+  }
+
+  .ir-title--sm {
+    font-size: clamp(1.7rem, 1.2rem + 2.2vw, 2.7rem);
+  }
+
+  .ir-trace a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .ir-trace a:hover {
+    color: var(--guard);
+  }
+</style>
+
+<script>
+  const pathInput = document.getElementById('path') as HTMLInputElement | null;
+  const templates = Array.from(document.querySelectorAll<HTMLElement>('[data-template]'));
+
+  /** Quote a path only when the shell would otherwise mangle it. */
+  function quote(path: string): string {
+    return /^[A-Za-z0-9_@%+=:,./-]+$/.test(path) ? path : `'${path.replace(/'/g, `'\\''`)}'`;
+  }
+
+  function apply() {
+    const raw = (pathInput?.value || '/var/log/app.log').trim();
+    const p = quote(raw);
+    const dir = raw.includes('/') ? raw.slice(0, raw.lastIndexOf('/')) || '/' : '.';
+    const base = raw.slice(raw.lastIndexOf('/') + 1);
+
+    for (const node of templates) {
+      const template = node.dataset.template ?? '';
+      node.textContent = template
+        .replaceAll('{p}', p)
+        .replaceAll('{d}', quote(dir))
+        .replaceAll('{n}', base);
+    }
+  }
+
+  pathInput?.addEventListener('input', apply);
+  apply();
+
+  document.querySelectorAll<HTMLButtonElement>('.ir-cmd__copy').forEach((button) => {
+    button.addEventListener('click', async () => {
+      const text = button.parentElement?.querySelector('.ir-cmd__text')?.textContent ?? '';
+      const original = button.textContent;
+      try {
+        await navigator.clipboard.writeText(text);
+        button.textContent = 'copied';
+      } catch {
+        button.textContent = 'failed';
+      }
+      setTimeout(() => {
+        button.textContent = original;
+      }, 1400);
+    });
+  });
+
+  document.getElementById('copy-all')?.addEventListener('click', async (event) => {
+    const button = event.currentTarget as HTMLButtonElement;
+    const original = button.textContent;
+    const lines: string[] = [`# File investigation — ${pathInput?.value ?? ''}`, ''];
+
+    document.querySelectorAll<HTMLElement>('.ir-step').forEach((step) => {
+      const title = step.querySelector('.ir-step__title')?.textContent ?? '';
+      lines.push(`# ${title}`);
+      step.querySelectorAll<HTMLElement>('.ir-cmd__text').forEach((cmd) => {
+        lines.push(cmd.textContent ?? '');
+      });
+      lines.push('');
+    });
+
+    try {
+      await navigator.clipboard.writeText(lines.join('\n'));
+      button.textContent = 'Copied ✓';
+    } catch {
+      button.textContent = 'Copy failed';
+    }
+    setTimeout(() => {
+      button.textContent = original;
+    }, 1600);
+  });
+</script>

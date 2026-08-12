@@ -64,6 +64,14 @@ jobs:
                       base64 jwt-decoder openssl-toolkit yaml-json cron-expression generators; do
             test -f "dist/tools/${tool}.html" || { echo "::error::missing /tools/${tool}"; exit 1; }
           done
+          # Incident Room: the hub, the two references, and every playbook.
+          test -f dist/incident-room.html
+          for page in atlas file-investigator high-cpu memory-pressure disk-full \
+                      process-stuck port-unreachable dns-failure tls-failure \
+                      permission-denied crashloopbackoff imagepullbackoff \
+                      oomkilled bad-gateway; do
+            test -f "dist/incident-room/${page}.html" || { echo "::error::missing /incident-room/${page}"; exit 1; }
+          done
           echo "Build verified: $(find dist -name '*.html' | wc -l) HTML pages."
 
       - name: Upload Pages artifact

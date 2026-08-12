@@ -1,0 +1,209 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { playbooks, domains, atlas } from '../../data/incident';
+import { site } from '../../data/site';
+import '../../styles/incident.css';
+
+const description =
+  'Guided troubleshooting workflows for Linux, networking, TLS, Kubernetes, processes and storage. Start with the symptom, follow the decision tree, and get the command plus what to look for at every step.';
+
+const byDomain = domains
+  .map((domain) => ({ domain, items: playbooks.filter((p) => p.domain === domain) }))
+  .filter((group) => group.items.length > 0);
+
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'CollectionPage',
+  name: 'Incident Room',
+  url: `${site.url}/incident-room`,
+  description,
+  mainEntity: {
+    '@type': 'ItemList',
+    numberOfItems: playbooks.length,
+    itemListElement: playbooks.map((p, i) => ({
+      '@type': 'ListItem',
+      position: i + 1,
+      name: p.title,
+      description: p.symptom,
+      url: `${site.url}/incident-room/${p.slug}`,
+    })),
+  },
+};
+---
+
+<BaseLayout title="Incident Room" description={description} jsonLd={jsonLd}>
+  <div class="ir">
+    <section class="ir-hero">
+      <div class="wrap">
+        <p class="ir-status">Incident Room</p>
+        <h1 class="ir-title">Something broke. <em>Now investigate.</em></h1>
+        <p class="ir-sub">
+          Guided troubleshooting workflows for Linux, networking, TLS, Kubernetes, processes, files,
+          and the systems behind them. Start with the symptom rather than the command — every step
+          tells you why you are running it, what to look for, and where that answer sends you next.
+        </p>
+
+        <div class="ir-search">
+          <div class="ir-search__field">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="11" cy="11" r="7"></circle>
+              <path d="m20 20-3.5-3.5"></path>
+            </svg>
+            <label class="visually-hidden" for="q">Describe what is broken</label>
+            <input
+              id="q"
+              type="search"
+              autocomplete="off"
+              spellcheck="false"
+              placeholder="Describe what is broken — “port refused”, “pod restarting”, “disk full”…"
+            />
+            <kbd class="ir-kbd">/</kbd>
+          </div>
+
+          <div class="ir-filters" role="group" aria-label="Filter by domain">
+            <button type="button" class="ir-filter is-active" data-domain="*">All</button>
+            {
+              domains.map((d) => (
+                <button type="button" class="ir-filter" data-domain={d}>
+                  {d}
+                </button>
+              ))
+            }
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="wrap">
+        <div class="ir-board" id="board">
+          {
+            byDomain.map((group) => (
+              <div class="ir-group" data-group={group.domain}>
+                <div class="ir-group__head">
+                  <span class="ir-group__name">{group.domain}</span>
+                  <span class="ir-group__count">{group.items.length}</span>
+                </div>
+                <div class="ir-list">
+                  {group.items.map((p) => (
+                    <a
+                      class="ir-row"
+                      href={`/incident-room/${p.slug}`}
+                      data-domain={p.domain}
+                      data-search={`${p.title} ${p.symptom} ${p.blurb} ${p.keywords.join(' ')}`.toLowerCase()}
+                    >
+                      <span class="ir-row__symptom">{p.symptom}</span>
+                      <span class="ir-row__meta">
+                        {p.steps.length} steps · {p.minutes} min
+                      </span>
+                      <span class="ir-row__blurb">{p.blurb}</span>
+                    </a>
+                  ))}
+                </div>
+              </div>
+            ))
+          }
+        </div>
+
+        <p class="ir-empty" id="empty" hidden>
+          Nothing matches that. Try a symptom rather than a cause — “timeout”, “killed”, “refused”.
+        </p>
+
+        <div class="ir-board">
+          <div class="ir-group">
+            <div class="ir-group__head">
+              <span class="ir-group__name">Reference</span>
+            </div>
+            <div class="ir-list">
+              <a class="ir-row" href="/incident-room/atlas">
+                <span class="ir-row__symptom">Command Atlas</span>
+                <span class="ir-row__meta">{atlas.length} commands</span>
+                <span class="ir-row__blurb">
+                  The invocations worth remembering for ss, lsof, strace, tcpdump, dig, openssl, find
+                  and the rest — with the mistake each one invites.
+                </span>
+              </a>
+              <a class="ir-row" href="/incident-room/file-investigator">
+                <span class="ir-row__symptom">File Investigator</span>
+                <span class="ir-row__meta">interactive</span>
+                <span class="ir-row__blurb">
+                  Give it a path and it writes the whole forensic sequence for that file: timestamps,
+                  ownership, ACLs, open handles, checksums, recent changes and the processes touching
+                  it.
+                </span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+</BaseLayout>
+
+<script>
+  const search = document.getElementById('q') as HTMLInputElement | null;
+  const board = document.getElementById('board');
+  const empty = document.getElementById('empty');
+  const rows = Array.from(document.querySelectorAll<HTMLAnchorElement>('.ir-row[data-search]'));
+  const groups = Array.from(document.querySelectorAll<HTMLElement>('.ir-group[data-group]'));
+  const filters = Array.from(document.querySelectorAll<HTMLButtonElement>('.ir-filter'));
+
+  let domain = '*';
+
+  function apply() {
+    const query = (search?.value ?? '').trim().toLowerCase();
+    const terms = query.split(/\s+/).filter(Boolean);
+    let visible = 0;
+
+    for (const row of rows) {
+      const haystack = row.dataset.search ?? '';
+      const matchesDomain = domain === '*' || row.dataset.domain === domain;
+      const matchesQuery = terms.every((t) => haystack.includes(t));
+      const show = matchesDomain && matchesQuery;
+      row.hidden = !show;
+      if (show) visible++;
+    }
+
+    // Hide a domain heading once everything under it is filtered out.
+    for (const group of groups) {
+      const any = Array.from(group.querySelectorAll<HTMLElement>('.ir-row')).some((r) => !r.hidden);
+      group.hidden = !any;
+    }
+
+    if (empty) empty.hidden = visible > 0;
+    if (board) board.setAttribute('aria-busy', 'false');
+  }
+
+  search?.addEventListener('input', apply);
+
+  filters.forEach((button) => {
+    button.addEventListener('click', () => {
+      domain = button.dataset.domain ?? '*';
+      filters.forEach((b) => b.classList.toggle('is-active', b === button));
+      apply();
+    });
+  });
+
+  // `/` focuses search from anywhere, Enter opens the first remaining match.
+  document.addEventListener('keydown', (event) => {
+    const target = event.target as HTMLElement | null;
+    const typing = target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA';
+
+    if (event.key === '/' && !typing) {
+      event.preventDefault();
+      search?.focus();
+      search?.select();
+    }
+
+    if (event.key === 'Enter' && target === search) {
+      const first = rows.find((r) => !r.hidden);
+      if (first) window.location.href = first.href;
+    }
+
+    if (event.key === 'Escape' && target === search && search) {
+      search.value = '';
+      apply();
+      search.blur();
+    }
+  });
+</script>

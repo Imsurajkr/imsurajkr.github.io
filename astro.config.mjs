@@ -51,6 +51,9 @@ export default defineConfig({
         } else if (item.url.includes('/tools')) {
           item.priority = 0.8;
           item.changefreq = 'monthly';
+        } else if (item.url.includes('/incident-room')) {
+          item.priority = 0.8;
+          item.changefreq = 'monthly';
         } else if (item.url.includes('/blog')) {
           item.priority = 0.7;
           item.changefreq = 'monthly';

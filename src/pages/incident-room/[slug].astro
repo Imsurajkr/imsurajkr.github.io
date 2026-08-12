@@ -1,0 +1,401 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { playbooks } from '../../data/incident';
+import { site } from '../../data/site';
+import '../../styles/incident.css';
+
+export function getStaticPaths() {
+  return playbooks.map((p) => ({ params: { slug: p.slug }, props: { playbook: p } }));
+}
+
+const { playbook } = Astro.props;
+const description = `${playbook.symptom}. ${playbook.blurb}`;
+
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'HowTo',
+  name: playbook.title,
+  description,
+  url: `${site.url}/incident-room/${playbook.slug}`,
+  totalTime: `PT${playbook.minutes}M`,
+  author: { '@type': 'Person', name: site.author.name, url: site.url },
+  step: playbook.steps.map((s, i) => ({
+    '@type': 'HowToStep',
+    position: i + 1,
+    name: s.title,
+    text: `${s.why} What to look for: ${s.look}`,
+  })),
+};
+
+/** Serialised for the runner, which does all the branching client-side. */
+const data = JSON.stringify({
+  slug: playbook.slug,
+  title: playbook.title,
+  entry: playbook.entry,
+  steps: playbook.steps,
+});
+---
+
+<BaseLayout title={playbook.title} description={description} jsonLd={jsonLd}>
+  <div class="ir">
+    <section class="ir-hero">
+      <div class="wrap">
+        <nav class="crumbs" aria-label="Breadcrumb">
+          <a href="/incident-room">Incident Room</a>
+          <span aria-hidden="true">/</span>
+          <span>{playbook.domain}</span>
+        </nav>
+        <p class="ir-status">{playbook.domain} · {playbook.steps.length} steps</p>
+        <h1 class="ir-title ir-title--sm">{playbook.title}</h1>
+        <p class="ir-sub">{playbook.blurb}</p>
+      </div>
+    </section>
+
+    <section class="wrap ir-console">
+      <aside class="ir-rail no-print" aria-label="Investigation trace">
+        <p class="ir-rail__title">Trace</p>
+        <ol class="ir-trace" id="trace"></ol>
+        <div class="ir-rail__actions">
+          <button type="button" class="btn btn--sm" id="restart">Restart</button>
+          <button type="button" class="btn btn--sm" id="copy-trace">Copy report</button>
+        </div>
+      </aside>
+
+      <main id="stage" aria-live="polite">
+        <noscript>
+          <div class="ir-step">
+            <div class="ir-step__head"><h2 class="ir-step__title">Every step</h2></div>
+            {
+              playbook.steps.map((s) => (
+                <>
+                  <div class="ir-zone">
+                    <span class="ir-zone__label">{s.title}</span>
+                    <div class="ir-zone__body">
+                      <p>{s.why}</p>
+                      {s.run?.map((c) => (
+                        <div class="ir-cmd">
+                          <span class="ir-cmd__prompt">$</span>
+                          <span class="ir-cmd__text">{c}</span>
+                        </div>
+                      ))}
+                      <p>
+                        <strong>Look for:</strong> {s.look}
+                      </p>
+                    </div>
+                  </div>
+                </>
+              ))
+            }
+          </div>
+        </noscript>
+      </main>
+    </section>
+  </div>
+
+  <script is:inline type="application/json" id="playbook-data" set:html={data} />
+</BaseLayout>
+
+<style>
+  .ir-title--sm {
+    font-size: clamp(1.7rem, 1.2rem + 2.2vw, 2.7rem);
+    max-width: 22ch;
+  }
+
+  .crumbs {
+    display: flex;
+    gap: 0.5rem;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    color: var(--fg-4);
+    margin-bottom: 1rem;
+  }
+
+  .crumbs a {
+    color: var(--fg-3);
+    text-decoration: none;
+  }
+
+  .crumbs a:hover {
+    color: var(--guard);
+  }
+</style>
+
+<script>
+  interface Branch {
+    when: string;
+    then: string;
+    outcome?: string;
+    fix?: string[];
+    handoff?: string;
+  }
+
+  interface Step {
+    id: string;
+    title: string;
+    why: string;
+    run?: string[];
+    look: string;
+    caution?: string;
+    branches: Branch[];
+  }
+
+  interface Data {
+    slug: string;
+    title: string;
+    entry: string;
+    steps: Step[];
+  }
+
+  const raw = document.getElementById('playbook-data')?.textContent;
+  if (raw) {
+    const data: Data = JSON.parse(raw);
+    const stage = document.getElementById('stage');
+    const traceEl = document.getElementById('trace');
+
+    /** One entry per step visited, with the branch that was taken. */
+    interface Visit {
+      stepId: string;
+      answer?: string;
+    }
+
+    let trace: Visit[] = [];
+    let terminal: Branch | null = null;
+
+    const stepById = (id: string) => data.steps.find((s) => s.id === id);
+
+    const esc = (s: string) =>
+      s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
+
+    /** Dim a trailing `# comment` so the command itself reads first. */
+    const renderCmd = (cmd: string) => {
+      const idx = cmd.indexOf('   #');
+      if (idx === -1) return esc(cmd);
+      return `${esc(cmd.slice(0, idx))}<span class="ir-comment">${esc(cmd.slice(idx))}</span>`;
+    };
+
+    function zone(label: string, body: string, modifier = '') {
+      return `<div class="ir-zone ${modifier}"><span class="ir-zone__label">${label}</span><div class="ir-zone__body">${body}</div></div>`;
+    }
+
+    function renderStep(step: Step, index: number) {
+      const commands = (step.run ?? [])
+        .map(
+          (c) =>
+            `<div class="ir-cmd"><span class="ir-cmd__prompt">$</span><span class="ir-cmd__text">${renderCmd(
+              c,
+            )}</span><button type="button" class="ir-cmd__copy" data-copy="${esc(c)}">copy</button></div>`,
+        )
+        .join('');
+
+      const branches = step.branches
+        .map(
+          (b, i) =>
+            `<button type="button" class="ir-branch" data-branch="${i}">
+               <span class="ir-branch__key">${i + 1}</span>
+               <span>${esc(b.when)}</span>
+               <span class="ir-branch__arrow">→</span>
+             </button>`,
+        )
+        .join('');
+
+      return (
+        `<article class="ir-step">
+           <div class="ir-step__head">
+             <span class="ir-step__n">STEP ${String(index + 1).padStart(2, '0')}</span>
+             <h2 class="ir-step__title">${esc(step.title)}</h2>
+           </div>` +
+        zone('Why', `<p>${esc(step.why)}</p>`, 'ir-zone--why') +
+        (commands ? zone('Run', commands) : '') +
+        (step.caution
+          ? zone('Caution', `<p>${esc(step.caution)}</p>`, 'ir-zone--caution')
+          : '') +
+        zone('Look for', `<p>${esc(step.look)}</p>`, 'ir-zone--look') +
+        zone('Next move', `<div class="ir-branches">${branches}</div>`) +
+        `</article>`
+      );
+    }
+
+    function renderOutcome(branch: Branch) {
+      const fix = (branch.fix ?? []).map((f) => `<li>${esc(f)}</li>`).join('');
+      const handoff = branch.handoff
+        ? `<div class="ir-handoff"><span>This one continues elsewhere.</span>
+             <a class="btn btn--sm btn--primary" href="/incident-room/${esc(branch.handoff)}">Open that playbook →</a></div>`
+        : '';
+
+      return `<div class="ir-outcome">
+          <p class="ir-outcome__label">${branch.handoff ? 'Handover' : 'Likely cause'}</p>
+          <h2 class="ir-outcome__title">${esc(branch.outcome ?? branch.when)}</h2>
+          <ul class="ir-fix">${fix}</ul>
+          ${handoff}
+        </div>`;
+    }
+
+    function renderTrace() {
+      if (!traceEl) return;
+
+      traceEl.innerHTML = trace
+        .map((visit, i) => {
+          const step = stepById(visit.stepId);
+          const current = i === trace.length - 1 && !terminal;
+          return `<li class="${current ? 'is-current' : 'is-done'}">
+              <button type="button" data-jump="${i}">${esc(step?.title ?? visit.stepId)}</button>
+              ${visit.answer ? `<span class="ir-trace__answer">↳ ${esc(visit.answer)}</span>` : ''}
+            </li>`;
+        })
+        .join('');
+
+      if (terminal) {
+        traceEl.innerHTML += `<li class="is-current"><span>${esc(
+          terminal.handoff ? 'Handed over' : 'Cause identified',
+        )}</span></li>`;
+      }
+
+      traceEl.querySelectorAll<HTMLButtonElement>('[data-jump]').forEach((button) => {
+        button.addEventListener('click', () => {
+          const at = Number(button.dataset.jump);
+          trace = trace.slice(0, at + 1);
+          trace[at].answer = undefined;
+          terminal = null;
+          render();
+        });
+      });
+    }
+
+    function render() {
+      if (!stage) return;
+
+      if (terminal) stage.innerHTML = renderOutcome(terminal);
+      else {
+        const visit = trace[trace.length - 1];
+        const step = stepById(visit.stepId);
+        if (!step) return;
+        stage.innerHTML = renderStep(step, trace.length - 1);
+
+        stage.querySelectorAll<HTMLButtonElement>('[data-branch]').forEach((button) => {
+          button.addEventListener('click', () => choose(Number(button.dataset.branch)));
+        });
+      }
+
+      stage.querySelectorAll<HTMLButtonElement>('[data-copy]').forEach((button) => {
+        button.addEventListener('click', async () => {
+          const original = button.textContent;
+          try {
+            await navigator.clipboard.writeText(button.dataset.copy ?? '');
+            button.textContent = 'copied';
+          } catch {
+            button.textContent = 'failed';
+          }
+          setTimeout(() => {
+            button.textContent = original;
+          }, 1400);
+        });
+      });
+
+      renderTrace();
+      syncUrl();
+    }
+
+    function choose(index: number) {
+      const visit = trace[trace.length - 1];
+      const step = stepById(visit.stepId);
+      const branch = step?.branches[index];
+      if (!branch) return;
+
+      visit.answer = branch.when;
+
+      const next = stepById(branch.then);
+      if (next) trace.push({ stepId: next.id });
+      else terminal = branch;
+
+      render();
+      // Keep the newly rendered step in view on a small screen.
+      if (window.innerWidth < 960) stage?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    /** The path is the shareable artefact — an incident note in a URL. */
+    function syncUrl() {
+      const path = trace.map((v) => `${v.stepId}${v.answer ? `:${v.answer}` : ''}`);
+      const params = new URLSearchParams();
+      if (trace.length > 1 || trace[0]?.answer) params.set('t', btoa(JSON.stringify(path)));
+      const query = params.toString();
+      history.replaceState(null, '', query ? `?${query}` : location.pathname);
+    }
+
+    function restore() {
+      const encoded = new URLSearchParams(location.search).get('t');
+      if (!encoded) return false;
+      try {
+        const path: string[] = JSON.parse(atob(encoded));
+        trace = [];
+        terminal = null;
+
+        for (const entry of path) {
+          const [stepId, answer] = entry.split(/:(.+)/);
+          const step = stepById(stepId);
+          if (!step) return false;
+          trace.push({ stepId, answer });
+          if (answer) {
+            const branch = step.branches.find((b) => b.when === answer);
+            if (branch && !stepById(branch.then)) terminal = branch;
+          }
+        }
+        return trace.length > 0;
+      } catch {
+        return false;
+      }
+    }
+
+    function start() {
+      trace = [{ stepId: data.entry }];
+      terminal = null;
+      render();
+    }
+
+    document.getElementById('restart')?.addEventListener('click', start);
+
+    document.getElementById('copy-trace')?.addEventListener('click', async (event) => {
+      const button = event.currentTarget as HTMLButtonElement;
+      const original = button.textContent;
+
+      const lines = [`Incident trace — ${data.title}`, ''];
+      trace.forEach((visit, i) => {
+        const step = stepById(visit.stepId);
+        lines.push(`${i + 1}. ${step?.title ?? visit.stepId}`);
+        for (const cmd of step?.run ?? []) lines.push(`     $ ${cmd}`);
+        if (visit.answer) lines.push(`   → observed: ${visit.answer}`);
+      });
+      if (terminal) {
+        lines.push('', `Conclusion: ${terminal.outcome ?? terminal.when}`);
+        for (const f of terminal.fix ?? []) lines.push(`  - ${f}`);
+      }
+      lines.push('', `${location.href}`);
+
+      try {
+        await navigator.clipboard.writeText(lines.join('\n'));
+        button.textContent = 'Copied ✓';
+      } catch {
+        button.textContent = 'Copy failed';
+      }
+      setTimeout(() => {
+        button.textContent = original;
+      }, 1600);
+    });
+
+    // Number keys pick a branch — faster than reaching for the mouse mid-incident.
+    document.addEventListener('keydown', (event) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA') return;
+      const n = Number(event.key);
+      if (Number.isInteger(n) && n >= 1 && n <= 9) {
+        const button = stage?.querySelector<HTMLButtonElement>(`[data-branch="${n - 1}"]`);
+        if (button) {
+          event.preventDefault();
+          button.click();
+        }
+      }
+    });
+
+    if (restore()) render();
+    else start();
+  }
+</script>
