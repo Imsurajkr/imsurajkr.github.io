@@ -1,95 +1,83 @@
 ---
-title: "Unlocking the Secrets of System Performance"
-description: "The \"System Monitoring Mastery\" guide is a comprehensive resource designed to help users effectively monitor and manage their system's performance and health."
+title: "Reading a Linux System with top, htop and bashtop"
+description: "Three interactive process monitors, what each one is good for, and the keys worth remembering — sorting by memory, killing a process without hunting for its PID, and seeing disk and network at a glance."
 pubDate: 2024-02-15
 heroImage: "https://cdn.pixabay.com/photo/2015/08/29/20/21/safe-913452_960_720.jpg"
 tags:
-  - "secforge"
-  - "security"
+  - "linux"
   - "monitoring"
-  - "development"
-  - "coding"
 ---
-# System Monitoring Mastery 🚀
 
-Welcome to the guide on mastering system monitoring with `bashtop`, `htop`, `top`, and more! Dive into the world of interactive system monitoring and take control of your system's health and performance.
+A guide to interactive system monitoring with `top`, `htop` and `bashtop` — taking control of your system's health and performance.
 
-## Getting Started 🌟
+## Getting started
 
-Before we dive in, ensure you have the necessary tools installed on your system. Most Linux distributions come with `top` pre-installed. To get the most out of this guide, consider installing `htop` and `bashtop` for a more interactive experience.
+Before diving in, make sure you have the tools installed. Most Linux distributions ship `top` already; `htop` and `bashtop` are worth adding for a more interactive experience.
 
-- Install `htop`:
+Install `htop`:
 
-  ```bash
-  sudo apt-get install htop # Debian/Ubuntu
-  sudo yum install htop # CentOS/RHEL
-  sudo dnf install htop # Fedora
-  ```
+```bash
+sudo apt-get install htop # Debian/Ubuntu
+sudo yum install htop     # CentOS/RHEL
+sudo dnf install htop     # Fedora
+```
 
-- Install `bashtop`:
+Install `bashtop`:
 
-  ```bash
-  sudo add-apt-repository ppa:bashtop-monitor/bashtop
-  sudo apt-get update
-  sudo apt-get install bashtop
-  ```
+```bash
+sudo add-apt-repository ppa:bashtop-monitor/bashtop
+sudo apt-get update
+sudo apt-get install bashtop
+```
 
-## TOP - The Classic 🧐
+## top — the classic
 
-`top` is the granddaddy of system monitoring tools. It provides a dynamic, real-time view of a running system.
+`top` is the granddaddy of system monitoring tools. It gives you a dynamic, real-time view of a running system.
 
-- To launch `top`, simply type:
-  ```bash
-  top
-  ```
+```bash
+top
+```
 
-- Navigate within `top`:
-  - **Shift + M**: Sort by memory usage
-  - **Shift + P**: Sort by CPU usage
-  - **h**: Show help
+Navigating within `top`:
 
-> "Understanding your system's performance is the first step towards optimization." - Anonymous
+- **Shift + M** — sort by memory usage
+- **Shift + P** — sort by CPU usage
+- **h** — show help
 
-## HTOP - The Enhanced Version 🎨
+## htop — the enhanced version
 
-`htop` is like `top` but with more features, including a colorful interface, easier navigation, and the ability to kill processes without entering their PID.
+`htop` is `top` with more features: a colourful interface, easier navigation, and the ability to kill a process without first looking up its PID.
 
-- Launch `htop`:
-  ```bash
-  htop
-  ```
+```bash
+htop
+```
 
-- Key features:
-  - Use the arrow keys to navigate.
-  - Press `F9` to kill a process.
-  - `F2` to access setup.
+Key features:
 
-> "The more you know about your system, the more you can tailor its performance to your needs." - Geek Wisdom
+- Use the arrow keys to navigate.
+- Press `F9` to kill a process.
+- Press `F2` for setup.
 
-## BASHTOP - The Eye Candy 🍭
+## bashtop — the eye candy
 
-`bashtop` is a beautiful resource monitor that shows usage and stats for processor, memory, disks, network, and processes. It's the most visually appealing of the bunch.
+`bashtop` is a resource monitor showing usage and statistics for processor, memory, disks, network and processes. It is the most visually appealing of the three.
 
-- Start `bashtop`:
-  ```bash
-  bashtop
-  ```
+```bash
+bashtop
+```
 
-- Highlights:
-  - Easy to use, with a game-like interface.
-  - Detailed information about process sorting, including by CPU and memory.
-  - A responsive UI with mouse support.
+Highlights:
 
-> "A picture is worth a thousand words, and `bashtop` turns your system stats into a masterpiece." - Tech Savvy
+- Easy to use, with an almost game-like interface.
+- Detailed process sorting, including by CPU and memory.
+- A responsive UI with mouse support.
 
-## Other Tools Worth Mentioning 🛠
+## Others worth mentioning
 
-- **Glances**: An all-in-one system monitoring tool.
-- **nmon**: Performance monitoring tool for Linux.
-- **atop**: For Linux server performance analysis.
+- **Glances** — an all-in-one system monitoring tool.
+- **nmon** — performance monitoring for Linux.
+- **atop** — for Linux server performance analysis.
 
-## Conclusion 🎉
+## Conclusion
 
-Monitoring your system is crucial for maintaining its health and optimizing performance. With tools like `bashtop`, `htop`, and `top`, you're well-equipped to understand and manage your system's inner workings. Happy monitoring!
-
-> "To master your machine, you must monitor its every move." - Secforge
+Monitoring is how you keep a system healthy and find out where its performance actually goes. Between `top`, `htop` and `bashtop` you are well equipped to understand and manage what your machine is doing.

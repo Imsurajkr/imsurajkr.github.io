@@ -1,172 +1,171 @@
 ---
-title: "How to manipulate payload data sent through a packet using ICMP ping?"
-description: "ping is just to check network connectivity! But what actually it is and can be done with the tiny looking ping command?🤔"
+title: "Sending a File Inside ICMP Echo Requests with hping3"
+description: "Ping looks like a connectivity check, but an echo request has a payload — and you can put whatever you like in it. Smuggling a text file between two VMs, then pulling it back out with tcpdump and tshark."
 pubDate: 2020-09-27
 heroImage: "https://cdn.pixabay.com/photo/2013/07/13/13/41/bash-161382_960_720.png"
 tags:
-  - "ping"
-  - "hping3"
-  - "payload"
-  - "secforge"
+  - "networking"
+  - "security"
 ---
-# Ping command 
-ping is the primary TCP/IP command used to troubleshoot connectivity, reachability, and name resolution.<br />
 
-The ping command sends a request over the network to a specific device. A successful ping results in a response from the computer that was pinged back to the originating computer.<br />
+`ping` is the primary TCP/IP command used to troubleshoot connectivity, reachability and name resolution. It sends a request over the network to a specific device; a successful ping results in a response from the pinged machine back to the originating one.
 
-According to the author, the name Ping comes from sonar terminology.<br />
-In sonar, a ping is an audible sound wave sent out to find an object. If the sound hits the object, the sound waves will reflect, or echo, back to the source. The distance and location of the object can be determined by measuring the time and direction of the returning sound wave.<br />
+According to its author, the name comes from sonar terminology. In sonar, a ping is an audible sound wave sent out to find an object. If the sound hits the object, the waves reflect — echo — back to the source, and the distance and location of the object can be worked out by measuring the time and direction of the returning wave.
 
-![Test Image](https://hlassets.paessler.com/common/files/graphics/glossary/ping.png)
+![How an ICMP echo request and reply travel between two hosts](https://hlassets.paessler.com/common/files/graphics/glossary/ping.png)
 
-When a ping command is issued, an echo request packet is sent to the address specified. When the remote host receives the echo request, it responds with an echo reply packet.<br />
+When a ping command is issued, an echo request packet is sent to the address specified. When the remote host receives it, it responds with an echo reply packet.
 
-## The Ping utility
-The ping utility has been incorporated into virtually every operating system with network support. While echo request and echo reply are **ICMP messages**.<br />
+## The ping utility
 
-In its simplest form, the ping utility can be run with nothing more than the ping command and a destination. The remote host can be specified either by name or address.<br />
+The ping utility has been built into virtually every operating system with network support. Echo request and echo reply are **ICMP messages**.
 
-```bash 
-ping 192.168.1.107 # A private addresss in your network
-# You can check the networks and ip with 
+In its simplest form, ping needs nothing more than the command and a destination, specified either by name or by address:
+
+```bash
+ping 192.168.1.107 # a private address on your network
+
+# You can check your networks and addresses with
 ip a s
-# or 
-ip addr show 
-# In gui its come pre-installed .If not by installing net-tools you can also use 
+# or
+ip addr show
+
+# ifconfig comes preinstalled on many desktops; if not, install net-tools
 ifconfig
-# To Check IP 
-ping google.com 
-ping fb.coom
+
+# Ping by name
+ping google.com
 ```
-# What if we want to manipulate data through the PING COMMAND.🤔
 
-If we want to send a file from a system to another system over the network using ping command through ICMP tunnel.
+## What if we want to manipulate the data ping sends?
 
-## hping3
+Say we want to send a file from one system to another over the network, through an ICMP tunnel.
 
-Hping3's implementation makes the actual construction and transmission of a crafted packet transparent to the user.<br />
-The tool easily assembles and sends custom ICMP/UDP/TCP packets, and displays target replies in the same way ping does with ICMP replies.
+### hping3
 
-We need two VM Machine with any linux flavour.<br />
-I will be using Fedora OS and Ubunut OS for my demonstation of hping command.<br />
-Make sure both the VM should be connected over same network.<br />
-I am using a router.<br />
+hping3 makes the construction and transmission of a crafted packet transparent to the user. It assembles and sends custom ICMP, UDP and TCP packets, and displays the target's replies much the way ping displays ICMP replies.
 
-### Lets craft some files to be sent over network using hping 
+You need two VMs running any Linux flavour. I am using Fedora and Ubuntu for this demonstration. Both VMs must be on the same network — I am using a router.
 
-Boot up the fedora machine and install the hping command 
+### Crafting a file to send
 
-```bash 
+Boot the Fedora machine and install hping3:
+
+```bash
 yum install hping3
 ```
-![install](/assets/images/install.png)
 
-Create a file to be sent over the payload
+![Installing hping3 on Fedora](/assets/images/install.png)
 
-```bash 
+Create the file that will become the payload:
+
+```bash
 cat <<EOF >$(pwd)/hello.txt
-Hey world this YourName.
-I will be sending this data over the network using Internet Control Message Protocol
+Hey world, this is YourName.
+I will be sending this data over the network using Internet Control Message Protocol.
 EOF
 ```
-![fileCreation](/assets/images/sendingFile.png)
 
-Before sending the data we must ensure that both the system should be connected over the bridge / Host only network.<br />
-It should be able to ping each other.<br />
-IP of both the VM.<br />
+![Creating the file to send](/assets/images/sendingFile.png)
 
-```bash 
-ifconfig # If not installed you can use 
-ip addr show # if Ifconfig does not work
-ip a s # Also a alternative to check the ip
-```
+Before sending anything, make sure both systems are connected over a bridged or host-only network and can ping each other. Get the address of each VM:
 
-![ipFedora](/assets/images/ifconfig.png) ![ipUbuntu](/assets/images/ipUbuntu.png)
-
-Enable tcpdump on the ubuntu system so that it can recieve the packets.
 ```bash
-tcpdump -i enp0s3 'icmp and src host <Your address here>'
+ifconfig      # if this is not installed, use one of the below
+ip addr show
+ip a s
 ```
-![tcpdump](/assets/images/tcpdumpCommand.png)
 
-Now send the file over the network using hping3 and receive the packets using tcpdump 
-```bash 
-# On fedora Machine 
+![The Fedora VM's address](/assets/images/ifconfig.png)
+![The Ubuntu VM's address](/assets/images/ipUbuntu.png)
+
+Start tcpdump on the Ubuntu system so it can capture the packets:
+
+```bash
+tcpdump -i enp0s3 'icmp and src host <your address here>'
+```
+
+![tcpdump listening for ICMP](/assets/images/tcpdumpCommand.png)
+
+Now send the file with hping3 and capture it with tcpdump:
+
+```bash
+# On the Fedora machine
 sudo hping3 -1 -E ./hello.txt -u -d 1500 192.168.1.108
-# -1 is used to let hping3 now we are going to send ICMP request.
-# -E is used to tell hping3 the file we are going to sent
-# -u Please indicate the user when the tansfer is complete 
-# -d It is to indicate the size of the packet.
-# When its done you will see the EOF reached in the sender system
-ctrl+c
-# To stop it sending the data further.
-# On ubuntu machine 
-sudo tcpdump -v -l enp0s3 'icmp and 192.168.1.107' -w file
-# When its transmitted through the sender system  
-ctrl+c # Press to stop
-```
-![sendRecieve](/assets/images/sendingReceiving.png)
+# -1  send ICMP requests
+# -E  the file whose contents become the payload
+# -u  tell the user when the transfer is complete
+# -d  the size of the packet
+# You will see "EOF reached" on the sending system when it is done
 
-Now to look inside the file you must install and run the wireshark tool.
-```bash 
+ctrl+c # stop sending
+
+# On the Ubuntu machine
+sudo tcpdump -v -l enp0s3 'icmp and 192.168.1.107' -w file
+ctrl+c # stop once the transfer finishes
+```
+
+![Sending and receiving the payload](/assets/images/sendingReceiving.png)
+
+To look inside the captured file, install Wireshark:
+
+```bash
 sudo apt install wireshark
 ```
-![wireshark](/assets/images/wireshark.png)
 
-Now run the file with the wireshark tool 
+![Installing Wireshark](/assets/images/wireshark.png)
 
-```bash 
+Then open the capture:
+
+```bash
 wireshark file&
 ```
-![wiresharkCommand](/assets/images/wiresharkCommand.png)
 
-A GUI interface will be appeared.
+![Opening the capture from the terminal](/assets/images/wiresharkCommand.png)
 
-![wiresharkGui](/assets/images/wiresharkImage.png)
+The GUI appears:
 
-We have to do a couple of observations to understand it more better.<br />
-Now if we look at the packet list we can see that the ICMP data is fragmented. So why did these packets get fragmented.<br />
-So the main thing through which the data gets fragmented is **MTU Maximum transfer unit**  <br />
-We can check the MTU of the link by ifconfig command 
-```bash 
-ifconfig 
-# In o/p : - enp0s: flags=4099<UP,BROADCAST,MULTICAST>  mtu 1500
+![The capture open in Wireshark](/assets/images/wiresharkImage.png)
+
+### Why the packets are fragmented
+
+Look at the packet list and you will see the ICMP data has been fragmented. The reason is the **MTU — maximum transmission unit**. You can check the MTU of the link with `ifconfig`:
+
+```bash
+ifconfig
+# enp0s3: flags=4099<UP,BROADCAST,MULTICAST>  mtu 1500
 ```
-**ICMP Total header size = 14 byte Ethernet Header + 20 byte IP header + 8 byte ICMP Header = 42 bytes**<br />
-**Maximum ICMP Data in a single packet = 1500 - 42 = 1458**
-But we are sending ICMP data of 1500 bytes (as set in hping3 -d option)
 
-Now if look at the packet section we can check the that the data is transferred into the ICMP section.<br />
-Inside the ICMP section we can check the data section where the original data is recieved.<br />
+The ICMP header overhead is **14 bytes of Ethernet header + 20 bytes of IP header + 8 bytes of ICMP header = 42 bytes**, which leaves **1500 − 42 = 1458 bytes** of ICMP data in a single packet. We asked hping3 for 1500 bytes with `-d`, so the datagram has to be fragmented.
 
-![datadata](/assets/images/dataData.png)
+Look at the packet detail pane and you can see the data carried in the ICMP section, and inside that the data field holding the original content.
 
-Now to extract the data.data section we can use shark.
+![The original file contents inside the ICMP data field](/assets/images/dataData.png)
 
-```bash 
-# To extract the hex data we can use a cli tool name shark
-sudo apt install tshark 
-# if tshark is not installed 
+### Extracting the payload
+
+`tshark` can pull the `data.data` field straight out of the capture:
+
+```bash
+sudo apt install tshark
+
 sudo tshark -n -q -r file -T fields -e data.data | tr -d "\n" | tr -d ":" > hex.txt
-# -n is for disable network object name 
-# -q is for quiet mode 
-# -r read packet data from filename 
-# -t Set the format of the output when viweing decoded packet data
-# -e add a field to the list of fields to display.
-# | send the o/p to the tr Translate or delete characters
-# '\n' remove the newline and the ':' from the data we recieved 
-# saveing the file to hex.txt     
+# -n  disable network object name resolution
+# -q  quiet mode
+# -r  read packet data from the given file
+# -T  set the format of the decoded output
+# -e  add a field to the list of fields to display
+# The output is piped to tr, which strips the newlines and colons,
+# and the result is saved to hex.txt
 ```
-![shark](/assets/images/tshark.png)
 
-Now Visit any website paste the data or upload the hex.txt file and read the data 
+![Extracting the hex payload with tshark](/assets/images/tshark.png)
 
-![visitanySite](/assets/images/finalData.png)
+Paste that hex into any hex-to-text converter, or upload `hex.txt`, and you get the file back:
 
-## For any additional information I missed you can check the following referneces 
-[ping command](https://www.paessler.com/it-explained/ping)
-[hping command](http://www.hping.org/)
+![The recovered file contents](/assets/images/finalData.png)
 
+## References
 
-# Contributers are always welcomed Thanks for Reading 
-# Happy Learning 🤓
+- [The ping command](https://www.paessler.com/it-explained/ping)
+- [hping](http://www.hping.org/)

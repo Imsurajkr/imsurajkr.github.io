@@ -1,131 +1,104 @@
 ---
-title: "Docker UI"
-description: "Hard to remember commands in Docker ?🤔"
+title: "Managing Docker from a Browser with Portainer"
+description: "Docker has a lot of commands to remember, and forgotten containers quietly eat disk and memory. Portainer puts the whole daemon behind a UI you can run with one command."
 pubDate: 2021-05-30
 heroImage: "https://miro.medium.com/max/1200/1*3OJbS-uzx-cWO8g-fR8geg.png"
 tags:
-  - "Docker"
-  - "Docker UI"
-  - "Portainer"
-  - "secforge"
+  - "docker"
+  - "containers"
 ---
-# Pre-Requisite 
 
-I am assuming that the readers have docker installed in their system and they are the part of the docker group. 
+This post assumes you already have Docker installed and that your user is part of the `docker` group.
 
-# Docker 
+## A quick word on Docker
 
-Docker is the de facto standard to build and share containerized apps - from desktop, to the cloud.
+Docker is the de facto standard for building and sharing containerised apps, from the desktop to the cloud. It separates your applications from your infrastructure so you can ship software quickly, and lets you manage that infrastructure the same way you manage the applications themselves.
 
-Docker is an open platform for developing, shipping, and running applications. Docker enables you to separate your applications from your infrastructure so you can deliver software quickly. With Docker, you can manage your infrastructure in the same ways you manage your applications. By taking advantage of Docker’s methodologies for shipping, testing, and deploying code quickly, you can significantly reduce the delay between writing code and running it in production.
-
-Some basic commands we run to manage docker from terminal are :- 
+These are the basic commands you would run to manage it from a terminal:
 
 ```bash
+# Check the images you have pulled
+docker images
 
-# To check the pulled images 
-docker images 
-# To check the running containers 
-docker ps 
+# Check the running containers
+docker ps
 
-# To check the container which we created 
+# Check every container, including stopped ones
 docker ps -a
 
-# To delete all the cotainers we created . Replace container id with yours 
-docker rm </containerId>
+# Delete a container — replace with your container ID
+docker rm <containerId>
 
-# to Delete the pulled images
-docker rmi </imageName>:</tagName>
-
-# And a lot of other commands to start stop and many more we need to execute to manage our containers 
-
+# Delete a pulled image
+docker rmi <imageName>:<tagName>
 ```
 
-# Problems we face as a beginner 
+And there are plenty more for starting, stopping and otherwise managing containers.
 
-When we create dockerfile and docker-compose we up the containers and forget to delete and mostly it runs in the backgroud which costs us a lot of memory and storage which we are not afare of . 
+## The problem beginners run into
 
-# Solution 
+You write a Dockerfile and a `docker-compose.yml`, bring the containers up, and then forget to remove them. They keep running in the background, quietly costing you memory and storage you are not aware of.
 
-Although I prefer CLI commands to configure my docker still I belive not everyone can remember the commands and its get difficult to manage docker from the CLI . 
+## Tools that help
 
-# Tools which can help us out 
+I still prefer the CLI for configuring Docker, but not everyone wants to memorise the commands, and managing Docker purely from the terminal gets awkward. Two tools stand out:
 
-There are multiple tools which can be a life saver in our daily life . Two most popular tools which I learned were 
 1. Rancher
-2. Portainer 
+2. Portainer
 
-Although both are best for there own use cases .
+Both are good at what they do. What follows is the local-environment scenario — running containers and managing networks and volumes graphically. You can launch a container in a click, and the best part is that you do not have to write a Dockerfile to do it.
 
-I will be discussing the scenerio for the local environment which can help the beginners to run the container and manage the network, volumes graphically .
-Whithin a click you can also launch container and the best part you dont need to write any DockerFile. 
+## Setting up Portainer
 
+One command, from your terminal or PowerShell:
 
-# Portainer 
-
-Let's quickly setup our portianer with terminal/Powershell. All we have to do is execute a single command.
-
-```bash 
-
-docker run -dit --name portainer -p 7777:9000 -v /var/run/docker.sock:/var/run/docker.sock portainer/portainer
-
+```bash
+docker run -dit --name portainer -p 7777:9000 \
+  -v /var/run/docker.sock:/var/run/docker.sock portainer/portainer
 ```
-![portainer_command](/assets/images/portainer/portainer_command.png)
 
+![Running the Portainer container from the terminal](/assets/images/portainer/portainer_command.png)
 
-Now we are all setup to manage docker container with our UI 
+That is the whole install. Now to the UI.
 
-# Setting up the portianer UI 
+### Setting the credentials
 
-We have to setup the credentials although we can manage portainer with policy's and ACL which I am not covering in this post .
-But yes we can do it <br/>
+You are asked for credentials on first run. Portainer can also be managed with policies and ACLs, which I am not covering here — but it can be done.
 
-![portainer_ui](/assets/images/portainer/admin.png)
+![The Portainer first-run credential screen](/assets/images/portainer/admin.png)
 
-Just Quickly set up the credentials .
+### Connecting to a remote machine
 
-## We can connect our portainer with remote machine container's 
+You can point Portainer at containers on another machine, which means managing several systems' containers from one web UI.
 
-Isn't it intresting the we can manage multiple system container from web UI.
+![Connecting Portainer to a remote Docker host](/assets/images/portainer/connect_remote.png)
 
-![connect_remote](/assets/images/portainer/connect_remote.png)
+### Connecting to the local environment
 
-## Setting up the local First!!
+We will set up the local environment first.
 
-Well we will setup the local enviroment on docker first.
+![Connecting Portainer to the local Docker socket](/assets/images/portainer/connect_local.png)
 
-![connect_local](/assets/images/portainer/connect_local.png)
+Click **Connect**.
 
-Just click hard on *Connect*
+![The local environment listed in Portainer](/assets/images/portainer/local.png)
 
-## Home Screen 
+## The dashboard
 
-![local](/assets/images/portainer/local.png)
+Now everything is set up, so let's explore.
 
+![The Portainer container dashboard](/assets/images/portainer/containers_dashboard.png)
 
-# Dasboard First look 
+As you can see, I have 8 images, 6 volumes and 1 container — which is Portainer itself.
 
-Now we are all setup to enjoy the comfort portainer provide us.
-let's roll and explore 
+## Creating containers
 
-![containers_dashboard](/assets/images/portainer/containers_dashboard.png)
+Creating a new container:
 
-So as you can see I have 8 images 6 volumes and 1 container which is portainer. 🤔
+![Creating a new container in Portainer](/assets/images/portainer/new_container.png)
 
-let's check the more amazing services portainer provides us :- 
+Creating one from a template:
 
-# Get Ready 
+![Creating a container from a Portainer template](/assets/images/portainer/template.png)
 
-To create a new conatainer
-
-![new_conatiner](/assets/images/portainer/new_container.png)
-
-To create container from template 
-
-![template](/assets/images/portainer/template.png)
-
-To launch containers in docker
-
-![new_container](/assets/images/portainer/new_container.png)
-
-I will update about Portainer vs Rancher Soon
+I will write up Portainer versus Rancher soon.

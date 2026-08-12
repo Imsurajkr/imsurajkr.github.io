@@ -1,12 +1,13 @@
 ---
 title: "Demystifying NAT: How It Works Locally and Enhances Security"
-description: ""
+description: "What NAT actually does at the edge of your network, the security it gives you as a side effect rather than by design, what it costs you in return, and how to read the translation table on Ubuntu."
 pubDate: 2024-02-05
 heroImage: "https://images.unsplash.com/15/tricycle.JPG?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
 tags:
-  - "secforge"
+  - "networking"
   - "security"
 ---
+
 Network Address Translation (NAT) is a critical component in the architecture of most networks, including those in our local systems. It plays a pivotal role in managing IP addresses and ensuring secure communication between devices. This post delves into the workings of NAT, its advantages and disadvantages, how it stores NAT IP addresses, and how you can view these details on an Ubuntu system.
 
 ## How NAT Works
@@ -45,15 +46,15 @@ NAT tables, which store the mappings between private and public IPs, are typical
 
 ## Checking NAT IP Mappings in Ubuntu
 
-To view NAT translations on an Ubuntu system, especially if you're running a NAT service directly on the system, you can use the netfilter/iptables framework. Here's 
+To view NAT translations on an Ubuntu system — particularly if you are running a NAT service directly on that system — use the netfilter/iptables framework. Open a terminal and list the NAT table entries:
 
-### how you can check NAT IP mappings:
+```bash
+sudo iptables -t nat -L -v -n
+```
 
-Open the terminal.
+That outputs the rules and mappings currently in effect, so you can see how local addresses are being translated.
 
-Use the command `sudo iptables -t nat -L -v -n` to list the NAT table entries.
-This command outputs the rules and mappings that are currently in effect, allowing you to see how local IPs are translated.
-It's important to note that on a typical home or office network, the NAT function is handled by the router, and these details might not be directly accessible from individual systems like an Ubuntu workstation.
+It is worth noting that on a typical home or office network the NAT function is handled by the router, and these details may not be directly accessible from an individual workstation.
 
 ## Conclusion
 

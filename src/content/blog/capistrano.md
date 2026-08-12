@@ -1,180 +1,172 @@
 ---
-title: "Capistrano"
-description: "Deployment using Capistrano🤔"
+title: "Automating Rails Deployments with Capistrano"
+description: "Capistrano turns a manual deployment into a repeatable task. Setting it up on a Rails project, defining tasks and roles, and preparing a remote server to receive releases."
 pubDate: 2021-05-31
 heroImage: "https://opengraph.githubassets.com/2e94ce8e626ce1bbff705df44719eb54ad0ae43ec2747cf9b3e7a86d8a0cf3d6/capistrano/capistrano"
 tags:
-  - "rails"
+  - "deployment"
   - "ruby"
-  - "Capistrano"
-  - "secforge"
+  - "rails"
 ---
-# What is capistrano 
 
-A deployment automation tool built on Ruby, Rake, and SSH.
-Automation of the deployment can be done through capistrano
-Basically we need 5 Important keys in the deployment
-1. Predectable
+Capistrano is a deployment automation tool built on Ruby, Rake and SSH. A good deployment has five properties, and Capistrano gives you all of them:
+
+1. Predictable
 2. Repeatable
 3. Automatable
-4. Reversable
-5. Extensable
+4. Reversible
+5. Extensible
 
-With capistrano we can implement all the 4 necessary key points.
-Capistrano was created in ruby so mostly the developers use this tool for ruby deployments but it can be used to deploy other applications also.
+It was written in Ruby, so it is mostly used for Ruby deployments — but there is nothing stopping you from deploying other applications with it.
 
-# Prerequisites﻿
+## Prerequisites
 
-1. Local machine
-2. Web server
+1. A local machine
+2. A web server
 
-# Setting up the Project for capistrano tasks 
+## Setting up the project
 
-Installing ruby rails on ubuntu 
+Installing Ruby on Rails on Ubuntu:
 
-```exec 
-
+```bash
 # Add the rvm key to the server.
 gpg --keyserver hkp://keys.gnupg.net --recv-keys 409B6B1796C275462A1703113804BB82D39DC0E3 \
 7D2BAF1CF37B13E2069D6956105BD0E739499BDB
-# Install the rvm stable version by running the command below.
+
+# Install the stable version of rvm.
 curl -sSL https://get.rvm.io | bash -s stable --ruby
-# Source 
+
+# Source it
 source /usr/local/rvm/scripts/rvm
-# check the version 
+
+# Check the version
 rvm version
 
-# Setup Ruby Latest Version
+# Set up the latest Ruby version
 rvm get stable --autolibs=enable
 usermod -a -G rvm root
-# available ruby versions.
+
+# Available Ruby versions
 rvm list known
-
-
 ```
-Now we have to create a sample project for the deployment of the capistrano 
 
-```exec 
-# It will automatically create the needed files and setup the boiler plate code for us 
+Now create a sample project to deploy:
 
-rails new </ProjectName>
+```bash
+# This creates the files and boilerplate for us
+rails new <ProjectName>
 
-# Edit the gemfile and add capistrano 
+# Edit the Gemfile and add Capistrano
+vim Gemfile # add gem 'capistrano'
 
-vim Gemfile # Add gem 'capistrano'
+# Install all the necessary gems
+bundle
 
-# Using the bundle command to install all the necessary gems 
-bundle 
-
-# In capistrano 2.X capify . was used but now 
-cap install 
-
-# And its capified 
-
+# In Capistrano 2.x this was `capify .`, but now:
+cap install
 ```
-Now it had done some default changes and created all the files required.
 
-# Capistrano is all about task 
+That generates the default configuration and every file Capistrano needs.
 
-How we can configure our manual tasks to be configued and run by the capistrano are 
-by changing the values in the config/deploy.rb 
+## Capistrano is all about tasks
 
-```bash 
-# Open the deploy.rb file and configure the tasks to be executed by the capistrano 
+Manual steps become tasks by editing `config/deploy.rb`:
+
+```ruby
+# Open deploy.rb and configure the tasks Capistrano should run
 git clone https://github.com/Imsurajkr/store.git
-cd store 
-vim config/deploy.rb 
-# add the following changes to the deploy.rb file to add mannual commands 
+cd store
+vim config/deploy.rb
 
-# Here I am setting up a variable with term recipient 
-
+# Set up a variable named recipient
 set :recipient, "Ruby"
-# Adding a description is always nice 
+
+# Adding a description is always nice
 desc "This is a hello world task"
-# Created a task hello 
-task :hello do 
-# Puts command is used for printing out in the terminal 
-    puts "hello #{fetch(:recipient)}"
-    # Roles I will discuss below
-    on roles(:web) do
-    # Execution of the commands
-        execute 'whoami'
-    # Ending the tag
-    end
+
+# Create a task called hello
+task :hello do
+  # puts prints to the terminal
+  puts "hello #{fetch(:recipient)}"
+
+  # Roles are covered below
+  on roles(:web) do
+    execute 'whoami'
+  end
 end
 
-# Another task 
-task :goodBye do 
-    puts "Goodbye  #{fetch(:recipient)}"
+# Another task
+task :goodBye do
+  puts "Goodbye #{fetch(:recipient)}"
 end
 
-# We can add a sequence to our tasks 
+# Tasks can be sequenced
 after :hello, :goodBye
-# 
-
 ```
 
-# Roles in capistrano 
+## Roles
 
-Roles allows us to write capistrano tasks that apply to Multi-sever deployments 
-The default roles of app web db are also used internally so their presence is not optional 
-the :Primary="true" is an attribute that allows for further granularity in specifying services in custom tasks
+Roles let you write tasks that apply to multi-server deployments. The default `app`, `web` and `db` roles are used internally, so their presence is not optional. The `:primary => true` attribute adds further granularity when specifying services in custom tasks.
 
-# capistrano is designed to run commands remotely 
- 
-As discussed it have predefined tasks which are 
-1. Web :- web is for nginx 
-2. app :- Application hosted on a server 
-3. db :- database setup . i.e postgres, sql
+Capistrano is designed to run commands remotely, and its predefined roles are:
 
-We can also checkout the recipies described by the capistrano on this [link](https://github.com/capistrano/capistrano/blob/master/lib/capistrano/tasks/deploy.rake).
+1. **web** — the web server, e.g. nginx
+2. **app** — the application hosted on a server
+3. **db** — the database, e.g. PostgreSQL or MySQL
 
-# Running Commands on the remote .
+You can also read through the [recipes Capistrano ships with](https://github.com/capistrano/capistrano/blob/master/lib/capistrano/tasks/deploy.rake).
 
-Capistrano is basically popular for running and setting up the releases on the remote server .
+## Running commands on the remote server
 
-Now let's setup the remote server :- 
+Capistrano is popular for exactly this: setting up releases on a remote server. Let's prepare one.
 
-### Run on local 
+### On the local machine
 
-```bash 
+```bash
 ssh root@1.2.3.4
-
 ```
-### Run on remote 
-```bash 
-sudo su # To switch into remote machine
+
+### On the remote machine
+
+```bash
+sudo su # switch to root on the remote machine
 
 adduser deploy
 adduser deploy sudo
 exit
-
-```
-### Copy Id on Local machine 
-
-```bash 
-
-ssh-copy-id deploy@1.2.3.4 # in 1.2.3.4 replace with your IP 
-
-# we are copying the keys on local so that it will not prompt for password with capistrano 
 ```
 
-### Installing Ruby on the remote system 
+### Copy your key from the local machine
 
-```bash 
-# for capistrano ruby must be installed on the remote system 
+```bash
+ssh-copy-id deploy@1.2.3.4 # replace 1.2.3.4 with your IP
 
-# Adding Node.js repository
+# Copying the key means Capistrano will not be prompted for a password
+```
+
+### Installing Ruby on the remote system
+
+Capistrano needs Ruby present on the remote system:
+
+```bash
+# Add the Node.js repository
 curl -sL https://deb.nodesource.com/setup_12.x | sudo -E bash -
-# Adding Yarn repository
+
+# Add the Yarn repository
 curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | sudo apt-key add -
 echo "deb https://dl.yarnpkg.com/debian/ stable main" | sudo tee /etc/apt/sources.list.d/yarn.list
 sudo add-apt-repository ppa:chris-lea/redis-server
-# Refresh our packages list with the new repositories
+
+# Refresh the package list with the new repositories
 sudo apt-get update
-# Install our dependencies for compiiling Ruby along with Node.js and Yarn
-sudo apt-get install git-core curl zlib1g-dev build-essential libssl-dev libreadline-dev libyaml-dev libsqlite3-dev sqlite3 libxml2-dev libxslt1-dev libcurl4-openssl-dev software-properties-common libffi-dev dirmngr gnupg apt-transport-https ca-certificates redis-server redis-tools nodejs yarn
-# Setting up rbenv
+
+# Install the dependencies for compiling Ruby, along with Node.js and Yarn
+sudo apt-get install git-core curl zlib1g-dev build-essential libssl-dev libreadline-dev \
+  libyaml-dev libsqlite3-dev sqlite3 libxml2-dev libxslt1-dev libcurl4-openssl-dev \
+  software-properties-common libffi-dev dirmngr gnupg apt-transport-https ca-certificates \
+  redis-server redis-tools nodejs yarn
+
+# Set up rbenv
 git clone https://github.com/rbenv/rbenv.git ~/.rbenv
 echo 'export PATH="$HOME/.rbenv/bin:$PATH"' >> ~/.bashrc
 echo 'eval "$(rbenv init -)"' >> ~/.bashrc
@@ -182,61 +174,65 @@ git clone https://github.com/rbenv/ruby-build.git ~/.rbenv/plugins/ruby-build
 echo 'export PATH="$HOME/.rbenv/plugins/ruby-build/bin:$PATH"' >> ~/.bashrc
 git clone https://github.com/rbenv/rbenv-vars.git ~/.rbenv/plugins/rbenv-vars
 exec $SHELL
+
 rbenv install 3.0.1
 rbenv global 3.0.1
 ruby -v
 # ruby 3.0.1
-# This installs the latest Bundler, currently 2.x.
+
+# This installs the latest Bundler, currently 2.x
 gem install bundler
-# For older apps that require Bundler 1.x, you can install it as well.
+
+# For older apps that need Bundler 1.x, install that too
 gem install bundler -v 1.17.3
-# Test and make sure bundler is installed correctly, you should see a version number.
+
+# Check the install — you should see a version number
 bundle -v
 # Bundler version 2.0
 ```
 
-## We have to configure the database and the Web also but before that lets test our capistrano 
+### Pointing Capistrano at the server
 
-We have to tell capistrano to run on the remote machines for that we can configure 
+The database and web server still need configuring, but first let's test Capistrano. Tell it which machine to run against:
 
-```bash 
+```bash
 vim config/deploy/staging.rb
-# add this line in your config to let the capistrano know your server 
-server "<YourIp>", user: "deploy", roles: %w{app db web}
 
+# Add this line so Capistrano knows your server
+server "<YourIp>", user: "deploy", roles: %w{app db web}
 ```
 
-## Setting up the deploy.rb
+### Setting up deploy.rb
 
-```bash 
-
+```ruby
 vim config/deploy.rb
-# Add the following lines to setup the git repository and branches 
+
+# Add the following to point at the repository and branch
 set :repo_url, "https://github.com/Imsurajkr/store.git"
 
 set :branch, "Feature/something"
 
 set :deploy_to, "/home/deploy/store"
-
 ```
 
-Its Time to test out our capistrano 
+Time to try it out:
 
-```bash 
-# on local machine we can check out the tasks 
+```bash
+# List the available tasks
 cap -T
-# we can execute the commands with 
-cap staging deploy --trace 
 
+# Run the deployment
+cap staging deploy --trace
 ```
-![Capistrano](/assets/images/capistarno/capistarano.png)
 
-# The Directory Structure 
+![Capistrano running a staging deploy](/assets/images/capistarno/capistarano.png)
 
-1. Current -> Points one of the directory in the releases  
-2. Releases -> Every deploy we have done have directory with the timestamps that actually took place on server 
-3. Repo -> Cached version of our git repository  
-4. shared -> Anything that is being shared between deploys 
-5. Revision.log -> contains the history of all your deployments
+## The directory structure
 
-![Directory](/assets/images/capistarno/directory.png)
+1. **current** — points at one of the directories in `releases`
+2. **releases** — every deploy gets a timestamped directory here
+3. **repo** — a cached copy of your Git repository
+4. **shared** — anything shared between deploys
+5. **revisions.log** — the history of all your deployments
+
+![The Capistrano directory structure on the server](/assets/images/capistarno/directory.png)

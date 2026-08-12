@@ -1,42 +1,40 @@
 ---
-title: "Why should we use vim ??"
-description: "What a simple editor like vim can do hmmmmm??🤔"
+title: "Building a Vim Setup Worth Using"
+description: "A walk through my .vimrc, one setting at a time — what each option actually does — then a plugin manager, autocompletion, a file tree and a status line."
 pubDate: 2021-03-27
 heroImage: "https://cdn.pixabay.com/photo/2012/04/11/11/39/text-editor-27620_960_720.png"
 tags:
   - "vim"
-  - "vimrc"
-  - "editor_in_unix"
-  - "secforge"
+  - "linux"
 ---
-# Vim Editor 
-Vim is a highly configurable text editor built to make creating and changing any kind of text very efficient.<br />
 
-# Is vim a Good editor ??
+Vim is a highly configurable text editor, built to make creating and changing any kind of text very efficient.
 
-Vim is highly configurable and an editor that is really built for developers and operations.<br />
-We want an editor which is quick. Modern IDE takes 1 or 2 minutes based on system configuration to load on machine. usally we have to download additional packages to make the IDE work more efficently.<br />
+## Is Vim a good editor?
 
-# Working with vim and ~/.vimrc
+Vim is highly configurable, and it is genuinely built for developers and operations people. We want an editor that is quick: a modern IDE takes a minute or two to load depending on the machine, and usually needs additional packages downloaded before it works efficiently.
 
-We will cover some topics to make our vim more interactive and cool.<br />
-1. Sets 
-2. Plugin Manager
-3. Plugins 
-4. remaps
+## Working with Vim and ~/.vimrc
 
-![Do_love](/assets/images/vim_editor/Do_Love.png)
+There are four things to cover to make Vim more interactive:
 
-# Steps 
+1. Sets
+2. A plugin manager
+3. Plugins
+4. Remaps
 
-Let's begin our journey with the more improvised vim editor so let's Roll.<br />
+![Vim in use](/assets/images/vim_editor/Do_Love.png)
 
-```bash
+## The settings
+
+Let's start with a more capable `.vimrc`:
+
+```vim
 vim ~/.vimrc
-# Inside the vimrc files updated these lines 
+" Add these lines inside the file
 
-syntax on 
- 
+syntax on
+
 set noerrorbells
 set tabstop=4 softtabstop=4
 set shiftwidth=4
@@ -44,106 +42,107 @@ set expandtab
 set smartindent
 set nu
 set nowrap
-set smartcase 
+set smartcase
 set noswapfile
 set nobackup
 set undodir=~/.vim/undodir
-set undofile 
+set undofile
 set incsearch
 
 set colorcolumn=80
 highlight ColorColumn ctermbg=0 guibg=lightgrey
 
-:source % 
+:source %
 :wq!
 ```
-![beginning](/assets/images/vim_editor/beginning.png)
 
-### syntax on 
+![The .vimrc taking shape](/assets/images/vim_editor/beginning.png)
 
-Syntax on just gives you some basic high-lighting this works with a lot of language. But you may have to add some extension to work with every language 
+Here is what each of those does.
+
+### syntax on
+
+Gives you basic highlighting, which works with a lot of languages. You may still need an extension for full support of a given language.
 
 ### set noerrorbells
 
-No beep occurs when an error message is displayed.
+No beep when an error message is displayed.
 
 ### set tabstop=4 softtabstop=4
 
-tabstop meaning that it's only four characters long.<br />
-softtabstop meaning that it's only four spaces long. <br />
+`tabstop` makes a tab four characters long; `softtabstop` makes it four spaces long.
 
 ### set shiftwidth=4
 
-This will set tabstops every 4 spaces and set the shiftwidth (that amount we indent) as 4 spaces.
+Sets tab stops every four spaces, and makes the amount we indent four spaces.
 
 ### set expandtab
 
-Expand tab simply means converted from a tab character to spaces.<br />
+Converts tab characters to spaces.
 
 ### set smartindent
 
-Vim do its best to indent.<br />
+Lets Vim do its best to indent for you.
 
 ### set nu
 
-We get nice line numbers <br />
+Line numbers.
 
-### set nowrap 
+### set nowrap
 
-It simply means if the lines go off the screen it appears on the next line so instead of that i want to just go off with no wrapping.
+Without this, a line that runs off the screen continues on the next one. I would rather it just run off.
 
-### set smartcase 
+### set smartcase
 
-The 'smartcase' option only applies to search patterns that you type.<br />
+Applies only to search patterns you type: a lowercase search is case-insensitive, but the moment you type a capital, the search becomes case-sensitive.
 
 ### set noswapfile
 
-To disable swap files from within vim. <br />
+Disables swap files from within Vim.
 
 ### set nobackup
 
-To prevent new swap files from being created.<br />
+Prevents new backup files from being created.
 
 ### set undodir=~/.vim/undodir
 
-Vim to keep its undo history . Happens with me a lot like once I saved the files I need to undo it but vim don't let me do this after this setup we have to create this directory
+Tells Vim to keep its undo history. This happens to me a lot — I save a file and then need to undo, and Vim will not let me. With this set, the directory has to exist:
 
-```bash 
-mkdir ~/.vim/undodir -p 
+```bash
+mkdir ~/.vim/undodir -p
 ls ~/.vim
 ```
+
 ### set undofile
 
-Save undos after file closes.<br />
+Saves the undo history after the file closes.
 
 ### set incsearch
 
-Incremental searches will be done. The Vim editor will start searching when you type the first character of the search string. As you type in more characters, the search is refined. :/search
+Searches incrementally. Vim starts searching when you type the first character of the search string and refines as you type more.
 
 ### set colorcolumn=80
 
-VIM will highlight anything that exceeds column 80.
+Highlights anything that runs past column 80.
 
 ### :source %
-Its simply sources the files you have.Sourcing a file is 'executing' it<br />
 
-Now we are done with the sets. Its improved the vim editor But we have to uncover more treasures in Vim 
+Sources the file you are in — sourcing a file means executing it.
 
+That covers the settings. The editor is already better, but there are more treasures to uncover.
 
-# Let's start with plugin and autocomplete.
+## Plugins and autocompletion
 
-Well well we need some installer and plugin manager to do some cool stuff for us.
+We need an installer and a plugin manager to do the interesting things:
 
-
-
-```bash 
-
+```bash
 curl -fLo ~/.vim/autoload/plug.vim --create-dirs \
     https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
+```
 
-# Open the ~/.vimrc Add the following lines.
-# I have listed all the plugins I tried.
+Then open `~/.vimrc` and add the following. These are all the plugins I have tried:
 
+```vim
 call plug#begin('~/.vim/plugged')
 Plug 'Shougo/deoplete.nvim', { 'do': ':UpdateRemotePlugins' }
 Plug 'scrooloose/nerdtree'
@@ -188,15 +187,15 @@ set background=dark
 
 " deoplete
 let g:deoplete#enable_at_startup = 1
-" use tab to forward cycle
+" use tab to cycle forward
 inoremap <silent><expr><tab> pumvisible() ? "\<c-n>" : "\<tab>"
-" use tab to backward cycle
+" use shift-tab to cycle backward
 inoremap <silent><expr><s-tab> pumvisible() ? "\<c-p>" : "\<s-tab>"
-" Close the documentation window when completion is done
+" close the documentation window when completion is done
 autocmd InsertLeave,CompleteDone * if pumvisible() == 0 | pclose | endif
 
-"NERDTree
-" How can I close vim if the only window left open is a NERDTree?
+" NERDTree
+" close vim if the only window left open is a NERDTree
 autocmd bufenter * if (winnr("$") == 1 && exists("b:NERDTree") && b:NERDTree.isTabTree()) | q | endif
 " toggle NERDTree
 map <C-n> :NERDTreeToggle<CR>
@@ -207,54 +206,71 @@ let g:NERDTreeShowBookmarks=1
 let g:nerdtree_tabs_focus_on_files=1
 let g:NERDTreeMapOpenInTabSilent = '<RightMouse>'
 
-if has('persistent_undo')        "check if your vim version supports it
-    set undofile                 "turn on the feature  
-    set undodir=$HOME/.vim/undo  "directory where the undo files will be stored
-endif 
+if has('persistent_undo')        " check if your vim version supports it
+    set undofile                 " turn on the feature
+    set undodir=$HOME/.vim/undo  " where the undo files are stored
+endif
 
 :source %
 :PlugInstall
-
-vim -c 'PlugInstall' 
-# In case if source gives some error 
 ```
 
-I know we can do a lot with vim . There's still a lot to learn but as far I have learned I have shared my vimrc files and some
-Intresting tips that you can also apply for vim configurations.
+If sourcing gives you an error, install from outside Vim instead:
 
-# Let's Start 
+```bash
+vim -c 'PlugInstall'
+```
 
-```bash 
+There is still a lot to learn, but this is my `.vimrc` and the tips I have picked up so far.
+
+## What each plugin gives you
+
+### Deoplete — autocompletion
+
+```vim
 Plug 'Shougo/deoplete.nvim', { 'do': ':UpdateRemotePlugins' }
 ```
-![deoplete](/assets/images/vim_editor/deoplete.png)
 
-## Deoplete is for auto-completion in vim.
+![Deoplete autocompleting in Vim](/assets/images/vim_editor/deoplete.png)
 
-```bash 
+### NERDTree — a file tree
+
+For moving around multiple directories inside Vim.
+
+```vim
 Plug 'scrooloose/nerdtree'
 ```
-![nerdTree](/assets/images/vim_editor/NerdTree.png)
 
-## nerdtree is used for accessing multiple directories in Vim editor
+![NERDTree open beside a buffer](/assets/images/vim_editor/NerdTree.png)
 
-```bash 
+### NERDCommenter — comment a block
+
+Comments all selected lines with `ctrl + /`.
+
+```vim
 Plug 'scrooloose/nerdcommenter'
 ```
-## Scrooloose/nerdcommenter to comment all lines with ctrl + / .
-![linesCommenting](/assets/images/vim_editor/lines_commenting.png)
 
-```bash 
+![Commenting several lines at once](/assets/images/vim_editor/lines_commenting.png)
+
+### Solarized — the colour scheme
+
+All the colour you can see in my Vim.
+
+```vim
 Plug 'altercation/vim-colors-solarized'
 ```
-## All the vibrant colours you are seeing in my vim
-![nerdTree](/assets/images/vim_editor/Myvimrc.png)
 
-```bash 
+![My Vim with the solarized colour scheme](/assets/images/vim_editor/Myvimrc.png)
+
+### Lightline — the status line
+
+The mode line along the bottom.
+
+```vim
 Plug 'itchyny/lightline.vim'
 ```
-## the mode line which we see below
-![lines](/assets/images/vim_editor/lines.png)
 
+![The lightline status bar](/assets/images/vim_editor/lines.png)
 
-# I will update on how to use these plugin and leader keys how to map in next blog 
+I will cover how to use these plugins, and how to map leader keys, in a later post.
