@@ -39,7 +39,7 @@ export const site = {
    * interchangeable. Empty means no banner and no gtag.js: the site sets no
    * cookies at all, which is what the privacy policy describes.
    */
-  googleAnalyticsId: '',
+  googleAnalyticsId: 'G-NL55XESMKH',
   author: {
     name: 'Suraj Kumar',
     email: 'surajkumar.devp@gmail.com',
