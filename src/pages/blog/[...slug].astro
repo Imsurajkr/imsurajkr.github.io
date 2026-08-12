@@ -2,6 +2,7 @@
 import { getCollection, render, type CollectionEntry } from 'astro:content';
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import FormattedDate from '../../components/FormattedDate.astro';
+import AuthorByline from '../../components/AuthorByline.astro';
 import { site } from '../../data/site';
 
 export async function getStaticPaths() {
@@ -46,8 +47,8 @@ const jsonLd = [
     dateModified: (post.data.updatedDate ?? post.data.pubDate).toISOString(),
     keywords: post.data.tags.join(', '),
     image: post.data.heroImage ? new URL(post.data.heroImage, site.url).href : undefined,
-    author: { '@type': 'Person', name: site.author.name, url: site.url },
-    publisher: { '@type': 'Person', name: site.author.name, url: site.url },
+    author: { '@type': 'Person', name: site.author.name, url: site.url, image: new URL(site.author.image, site.url).href },
+    publisher: { '@type': 'Person', name: site.author.name, url: site.url, image: new URL(site.author.image, site.url).href },
   },
   {
     '@context': 'https://schema.org',
@@ -150,6 +151,8 @@ const toc = headings.filter((h) => h.depth === 2 || h.depth === 3);
     </div>
 
     <footer class="wrap post__footer no-print">
+      <AuthorByline verb="Written" />
+
       <nav class="post-nav" aria-label="More posts">
         {
           prev ? (

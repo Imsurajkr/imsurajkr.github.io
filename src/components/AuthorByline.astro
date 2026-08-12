@@ -1,0 +1,101 @@
+---
+import { Image } from 'astro:assets';
+import { site } from '../data/site';
+import portrait from '../assets/author.jpg';
+
+export interface Props {
+  /** What this person did to the thing above — the page decides the verb. */
+  verb?: 'Written' | 'Built';
+}
+
+const { verb = 'Written' } = Astro.props;
+---
+
+<aside class="byline">
+  <Image
+    class="byline__photo"
+    src={portrait}
+    alt={`${site.author.name}, ${site.tagline}`}
+    width={112}
+    height={112}
+    loading="lazy"
+    densities={[1, 2]}
+  />
+
+  <div class="byline__body">
+    <p class="byline__who">
+      {verb} by <strong>{site.author.name}</strong>
+    </p>
+    <p class="byline__role">{site.tagline} · {site.author.location}</p>
+    <p class="byline__links">
+      <a href="/about">About</a>
+      <span aria-hidden="true">·</span>
+      <a href={site.social.github} rel="me noopener">GitHub</a>
+      <span aria-hidden="true">·</span>
+      <a href={site.social.linkedin} rel="me noopener">LinkedIn</a>
+      <span aria-hidden="true">·</span>
+      <a href="/contact">Contact</a>
+    </p>
+  </div>
+</aside>
+
+<style>
+  .byline {
+    display: flex;
+    align-items: center;
+    gap: clamp(0.85rem, 2.5vw, 1.15rem);
+    padding: clamp(0.9rem, 2.5vw, 1.15rem);
+    border: 1px solid var(--line);
+    border-radius: var(--r);
+    background: var(--bg-1);
+  }
+
+  .byline__photo {
+    width: 3.5rem;
+    height: 3.5rem;
+    flex: none;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 1px solid var(--line-2);
+  }
+
+  .byline__body {
+    min-width: 0;
+  }
+
+  .byline__who {
+    font-size: 0.95rem;
+    color: var(--fg-2);
+    margin: 0;
+  }
+
+  .byline__who strong {
+    color: var(--fg);
+    font-weight: 600;
+  }
+
+  .byline__role {
+    font-size: 0.8rem;
+    color: var(--fg-3);
+    margin: 0.15rem 0 0;
+  }
+
+  .byline__links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin: 0.5rem 0 0;
+    font-family: var(--font-mono);
+    font-size: 0.74rem;
+    color: var(--fg-4);
+  }
+
+  .byline__links a {
+    color: var(--fg-3);
+    text-decoration: none;
+  }
+
+  .byline__links a:hover {
+    color: var(--signal);
+  }
+</style>

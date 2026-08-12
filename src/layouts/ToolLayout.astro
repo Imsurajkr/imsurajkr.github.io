@@ -2,6 +2,7 @@
 import BaseLayout from './BaseLayout.astro';
 import { site } from '../data/site';
 import { tools, toolBySlug } from '../data/tools';
+import AuthorByline from '../components/AuthorByline.astro';
 import '../styles/tools.css';
 
 export interface Props {
@@ -29,7 +30,7 @@ const jsonLd = [
     operatingSystem: 'Any (web browser)',
     browserRequirements: 'Requires JavaScript',
     offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
-    author: { '@type': 'Person', name: site.author.name, url: site.url },
+    author: { '@type': 'Person', name: site.author.name, url: site.url, image: new URL(site.author.image, site.url).href },
     keywords: tool.keywords.join(', '),
   },
   {
@@ -70,6 +71,10 @@ const jsonLd = [
         Runs entirely in your browser — nothing you type here is uploaded, logged or stored.
         <a href="/privacy">Privacy policy</a>
       </p>
+
+      <div class="tool-byline">
+        <AuthorByline verb="Built" />
+      </div>
     </div>
   </section>
 
@@ -148,6 +153,10 @@ const jsonLd = [
 
   .tool-body {
     padding-block: clamp(1.75rem, 4vw, 2.75rem);
+  }
+
+  .tool-byline {
+    margin-top: 1.25rem;
   }
 
   .guide-section {
