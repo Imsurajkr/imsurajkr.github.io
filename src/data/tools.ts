@@ -21,8 +21,8 @@ export const tools: Tool[] = [
     name: 'Visual Subnet Calculator',
     tagline: 'Split and join CIDR blocks visually',
     description:
-      'Divide a network into subnets by clicking, then join them back. Shows address ranges, usable IPs, netmasks and host counts — and encodes your whole division into a shareable link.',
-    seo: 'Free visual subnet calculator — divide and join IPv4 CIDR blocks interactively, with netmasks, address ranges, usable IPs and host counts. Runs entirely in your browser.',
+      'Divide a network into subnets by clicking, then join them back. Shows address ranges, usable IPs, netmasks and host counts — and encodes your whole division into a shareable link. Look up a single address to see every network it belongs to and which reserved block it falls in.',
+    seo: 'Free visual subnet calculator — divide and join IPv4 CIDR blocks interactively, with netmasks, address ranges, usable IPs and host counts. Look up any IP to see which subnets and reserved blocks contain it. Runs entirely in your browser.',
     category: 'Networking',
     icon: 'network',
     keywords: [
@@ -32,6 +32,8 @@ export const tools: Tool[] = [
       'IPv4 subnetting',
       'netmask',
       'network planning',
+      'what subnet is this IP in',
+      'IP address lookup private or public',
     ],
   },
   {

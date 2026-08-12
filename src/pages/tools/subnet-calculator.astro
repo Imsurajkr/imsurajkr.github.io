@@ -73,6 +73,57 @@ const presets = [
 
   <div class="tool-panel">
     <div class="tool-head-row">
+      <p class="tool-panel__title">Look up a single address</p>
+      <p class="hint dim">Which blocks is it inside, and what could it be a subnet of?</p>
+    </div>
+
+    <form id="lookup-form" class="tool-row" novalidate>
+      <div class="tool-field tool-field--grow">
+        <label for="lookup">IPv4 address</label>
+        <input
+          id="lookup"
+          class="tool-input tool-input--mono"
+          type="text"
+          placeholder="192.168.255.1"
+          maxlength="18"
+          inputmode="decimal"
+          autocomplete="off"
+          spellcheck="false"
+        />
+      </div>
+      <button type="submit" class="btn btn--primary">Inspect</button>
+    </form>
+
+    <p id="lookup-error" class="tool-status tool-status--error" role="alert"></p>
+
+    <div id="lookup-results" hidden>
+      <p class="verdict" id="verdict"></p>
+      <dl class="kv" id="lookup-facts"></dl>
+
+      <p class="tool-panel__title ladder-title">Every network it belongs to</p>
+      <p class="hint dim ladder-hint">
+        Widest mask first. Pick one to load it into the table above and start dividing.
+      </p>
+      <div class="ladder-scroll">
+        <table class="tool-table ladder-table">
+          <thead>
+            <tr>
+              <th>Prefix</th>
+              <th>Network</th>
+              <th>Range</th>
+              <th>Netmask</th>
+              <th>Hosts</th>
+              <th><span class="visually-hidden">Load</span></th>
+            </tr>
+          </thead>
+          <tbody id="ladder-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="tool-panel">
+    <div class="tool-head-row">
       <p class="tool-panel__title">Show columns</p>
       <div class="tool-actions">
         <button type="button" class="btn btn--sm" id="copy-link">Copy shareable link</button>
@@ -160,6 +211,94 @@ const presets = [
   .summary {
     font-family: var(--font-mono);
     font-size: 0.78rem;
+  }
+
+  /* ------------------------------------------------- single-address lookup */
+  .tool-head-row .hint {
+    margin-top: 0;
+  }
+
+  .verdict {
+    font-size: 0.95rem;
+    line-height: 1.55;
+    color: var(--fg-2);
+    padding: 0.8rem 0.95rem;
+    border-radius: var(--r);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--line-3);
+    background: var(--bg);
+    margin-bottom: 1rem;
+  }
+
+  .verdict strong {
+    display: block;
+    color: var(--fg);
+    font-weight: 600;
+    margin-bottom: 0.15rem;
+  }
+
+  .verdict.is-private {
+    border-left-color: var(--health);
+  }
+
+  .verdict.is-public {
+    border-left-color: var(--signal);
+  }
+
+  .verdict.is-special {
+    border-left-color: var(--guard);
+  }
+
+  .ladder-title {
+    margin-top: 1.5rem;
+    margin-bottom: 0.3rem;
+  }
+
+  .ladder-hint {
+    margin-top: 0;
+    margin-bottom: 0.8rem;
+  }
+
+  .ladder-scroll {
+    overflow: auto;
+    max-height: 26rem;
+    border: 1px solid var(--line);
+    border-radius: var(--r);
+  }
+
+  .ladder-table {
+    min-width: 42rem;
+  }
+
+  .ladder-table th,
+  .ladder-table td {
+    border-left: 0;
+    border-right: 0;
+  }
+
+  .ladder-table :global(.is-block) {
+    background: var(--guard-soft);
+  }
+
+  .ladder-table :global(.block-note) {
+    color: var(--guard);
+    font-size: 0.72rem;
+    margin-left: 0.4rem;
+  }
+
+  .ladder-table :global(.use-btn) {
+    background: none;
+    border: 0;
+    padding: 0.1rem 0.3rem;
+    border-radius: 4px;
+    color: var(--signal);
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    cursor: pointer;
+  }
+
+  .ladder-table :global(.use-btn:hover) {
+    background: var(--signal-soft);
   }
 
   .calc-table {
@@ -296,6 +435,133 @@ const presets = [
     if (mask === 31) return 2; // RFC 3021 point-to-point
     return subnetSize(mask) - 2;
   }
+
+  // ------------------------------------------------- special-use IPv4 blocks
+
+  type Family = 'private' | 'public' | 'special';
+
+  interface Block {
+    cidr: string;
+    network: string;
+    mask: number;
+    name: string;
+    rfc: string;
+    family: Family;
+    note: string;
+  }
+
+  /**
+   * The IANA special-purpose address registry (RFC 6890 and friends), in the
+   * order an address should be reported: most specific block first.
+   */
+  const BLOCKS: Block[] = [
+    {
+      cidr: '255.255.255.255/32', network: '255.255.255.255', mask: 32,
+      name: 'Limited broadcast', rfc: 'RFC 8190', family: 'special',
+      note: 'Reaches every host on the local link. Routers never forward it.',
+    },
+    {
+      cidr: '192.0.0.0/24', network: '192.0.0.0', mask: 24,
+      name: 'IETF protocol assignments', rfc: 'RFC 6890', family: 'special',
+      note: 'Reserved for protocol machinery such as DS-Lite, not for hosts.',
+    },
+    {
+      cidr: '192.0.2.0/24', network: '192.0.2.0', mask: 24,
+      name: 'Documentation (TEST-NET-1)', rfc: 'RFC 5737', family: 'special',
+      note: 'Set aside for examples and documentation. Safe to publish, never routed.',
+    },
+    {
+      cidr: '192.88.99.0/24', network: '192.88.99.0', mask: 24,
+      name: '6to4 relay anycast (deprecated)', rfc: 'RFC 7526', family: 'special',
+      note: 'Formerly the 6to4 relay anycast prefix. Deprecated — treat as dead space.',
+    },
+    {
+      cidr: '198.51.100.0/24', network: '198.51.100.0', mask: 24,
+      name: 'Documentation (TEST-NET-2)', rfc: 'RFC 5737', family: 'special',
+      note: 'Set aside for examples and documentation. Safe to publish, never routed.',
+    },
+    {
+      cidr: '203.0.113.0/24', network: '203.0.113.0', mask: 24,
+      name: 'Documentation (TEST-NET-3)', rfc: 'RFC 5737', family: 'special',
+      note: 'Set aside for examples and documentation. Safe to publish, never routed.',
+    },
+    {
+      cidr: '169.254.0.0/16', network: '169.254.0.0', mask: 16,
+      name: 'Link-local (APIPA)', rfc: 'RFC 3927', family: 'special',
+      note: 'Self-assigned when DHCP fails. If you see one in production, DHCP is broken.',
+    },
+    {
+      cidr: '192.168.0.0/16', network: '192.168.0.0', mask: 16,
+      name: 'Private use', rfc: 'RFC 1918', family: 'private',
+      note: 'Yours to allocate. Never routed on the internet, so it reaches the outside only through NAT.',
+    },
+    {
+      cidr: '198.18.0.0/15', network: '198.18.0.0', mask: 15,
+      name: 'Benchmarking', rfc: 'RFC 2544', family: 'special',
+      note: 'Reserved for network device performance testing.',
+    },
+    {
+      cidr: '172.16.0.0/12', network: '172.16.0.0', mask: 12,
+      name: 'Private use', rfc: 'RFC 1918', family: 'private',
+      note: 'Yours to allocate. Never routed on the internet, so it reaches the outside only through NAT.',
+    },
+    {
+      cidr: '100.64.0.0/10', network: '100.64.0.0', mask: 10,
+      name: 'Shared address space (CGNAT)', rfc: 'RFC 6598', family: 'special',
+      note: 'Used by ISPs between the subscriber and their carrier-grade NAT. Do not use it in your own network.',
+    },
+    {
+      cidr: '0.0.0.0/8', network: '0.0.0.0', mask: 8,
+      name: '"This network"', rfc: 'RFC 1122', family: 'special',
+      note: 'Only valid as a source address before a host knows its own. 0.0.0.0 also means "any address" when binding a socket.',
+    },
+    {
+      cidr: '10.0.0.0/8', network: '10.0.0.0', mask: 8,
+      name: 'Private use', rfc: 'RFC 1918', family: 'private',
+      note: 'The largest private block — 16.7 million addresses. Never routed on the internet.',
+    },
+    {
+      cidr: '127.0.0.0/8', network: '127.0.0.0', mask: 8,
+      name: 'Loopback', rfc: 'RFC 1122', family: 'special',
+      note: 'Never leaves the host. The whole /8 loops back, not just 127.0.0.1.',
+    },
+    {
+      cidr: '224.0.0.0/4', network: '224.0.0.0', mask: 4,
+      name: 'Multicast', rfc: 'RFC 5771', family: 'special',
+      note: 'A group of listeners rather than one host. Class D in the old classful scheme.',
+    },
+    {
+      cidr: '240.0.0.0/4', network: '240.0.0.0', mask: 4,
+      name: 'Reserved for future use', rfc: 'RFC 1112', family: 'special',
+      note: 'Class E. Most stacks refuse to route or even assign it.',
+    },
+  ];
+
+  /** Every registry block containing this address, most specific first. */
+  function blocksContaining(ip: number): Block[] {
+    return BLOCKS.filter((b) => networkAddress(ip, b.mask) === aton(b.network)).sort(
+      (a, b) => b.mask - a.mask,
+    );
+  }
+
+  /** The legacy classful reading of an address — still how people talk. */
+  function classOf(ip: number): { letter: string; range: string; defaultMask: number | null } {
+    const first = (ip >>> 24) & 255;
+    if (first < 128) return { letter: 'A', range: '0–127', defaultMask: 8 };
+    if (first < 192) return { letter: 'B', range: '128–191', defaultMask: 16 };
+    if (first < 224) return { letter: 'C', range: '192–223', defaultMask: 24 };
+    if (first < 240) return { letter: 'D', range: '224–239 (multicast)', defaultMask: null };
+    return { letter: 'E', range: '240–255 (reserved)', defaultMask: null };
+  }
+
+  const toBinary = (ip: number): string =>
+    [24, 16, 8, 0].map((shift) => (((ip >>> shift) & 255) + 256).toString(2).slice(1)).join('.');
+
+  const toHex = (ip: number): string =>
+    `0x${[24, 16, 8, 0].map((s) => (((ip >>> s) & 255) + 256).toString(16).slice(1)).join('').toUpperCase()}`;
+
+  const reverseDns = (ip: number): string =>
+    `${[0, 8, 16, 24].map((s) => (ip >>> s) & 255).join('.')}.in-addr.arpa`;
 
   // ------------------------------------------------------------- tree stats
 
@@ -521,6 +787,9 @@ const presets = [
       mask: String(baseMask),
       division: bitsToHex(treeToBits(root)),
     });
+    // Keep a lookup in the URL too, so a shared link reopens on the same address.
+    const looked = lookupInput?.value.trim();
+    if (looked && lookupResults && !lookupResults.hidden) params.set('ip', looked);
     history.replaceState(null, '', `${location.pathname}?${params.toString()}`);
   }
 
@@ -625,6 +894,140 @@ const presets = [
     URL.revokeObjectURL(url);
   });
 
+  // -------------------------------------------------- single-address lookup
+
+  const lookupForm = $<HTMLFormElement>('lookup-form');
+  const lookupInput = $<HTMLInputElement>('lookup');
+  const lookupError = $('lookup-error');
+  const lookupResults = $('lookup-results');
+
+  function inspect(raw: string) {
+    // Accept a bare address or something pasted with a prefix already on it.
+    const [addressPart, prefixPart] = raw.trim().split('/');
+    const ip = aton(addressPart ?? '');
+
+    if (ip === null) {
+      if (lookupError) lookupError.textContent = 'That does not look like a valid IPv4 address.';
+      if (lookupResults) lookupResults.hidden = true;
+      return;
+    }
+    if (lookupError) lookupError.textContent = '';
+
+    const matches = blocksContaining(ip);
+    const klass = classOf(ip);
+    const primary = matches[0];
+    const family: Family = primary?.family ?? 'public';
+
+    // ---- verdict
+    const verdict = $('verdict');
+    if (verdict) {
+      verdict.className = `verdict is-${family}`;
+      if (primary) {
+        verdict.innerHTML =
+          `<strong>${escapeHtml(primary.name)} — ${escapeHtml(primary.cidr)} (${escapeHtml(primary.rfc)})</strong>` +
+          escapeHtml(primary.note);
+      } else {
+        verdict.innerHTML =
+          '<strong>Ordinary public address</strong>' +
+          'It sits in no reserved block, so it belongs to whoever holds the allocation and is routable across the internet.';
+      }
+    }
+
+    // ---- facts
+    const facts: [string, string][] = [
+      [
+        'Reserved blocks',
+        matches.length
+          ? matches.map((b) => `${b.cidr} — ${b.name}`).join('\n')
+          : 'none — this is public address space',
+      ],
+      [
+        'Legacy class',
+        klass.defaultMask
+          ? `Class ${klass.letter} (first octet ${klass.range}), default mask /${klass.defaultMask}`
+          : `Class ${klass.letter} (first octet ${klass.range})`,
+      ],
+      ['Binary', toBinary(ip)],
+      ['Hex / decimal', `${toHex(ip)} · ${(ip >>> 0).toLocaleString('en-US')}`],
+      ['Reverse DNS', reverseDns(ip)],
+    ];
+
+    const factList = $('lookup-facts');
+    if (factList) {
+      factList.innerHTML = facts
+        .map(
+          ([k, v]) =>
+            `<div><dt>${escapeHtml(k)}</dt><dd>${escapeHtml(v).replace(/\n/g, '<br>')}</dd></div>`,
+        )
+        .join('');
+    }
+
+    // ---- the ladder of containing networks, widest first
+    const ladder = $<HTMLTableSectionElement>('ladder-body');
+    if (ladder) {
+      ladder.replaceChildren();
+
+      for (let mask = 0; mask <= 32; mask++) {
+        const network = networkAddress(ip, mask);
+        const last = lastAddress(network, mask);
+        const block = BLOCKS.find((b) => b.mask === mask && aton(b.network) === network);
+
+        const row = document.createElement('tr');
+        if (block) row.className = 'is-block';
+
+        const prefix = document.createElement('td');
+        prefix.textContent = `/${mask}`;
+        if (block) {
+          const note = document.createElement('span');
+          note.className = 'block-note';
+          note.textContent = block.rfc;
+          prefix.appendChild(note);
+        }
+        row.appendChild(prefix);
+
+        cell(row, `${ntoa(network)}/${mask}`, true);
+        cell(row, mask === 32 ? ntoa(network) : `${ntoa(network)} - ${ntoa(last)}`, true);
+        cell(row, ntoa(netmaskInt(mask)), true);
+        cell(row, hostCount(mask).toLocaleString('en-US'), true);
+
+        const action = document.createElement('td');
+        const use = document.createElement('button');
+        use.type = 'button';
+        use.className = 'use-btn';
+        use.textContent = 'Divide this';
+        use.title = `Load ${ntoa(network)}/${mask} into the table above`;
+        use.addEventListener('click', () => {
+          if (networkInput) networkInput.value = ntoa(network);
+          if (bitsInput) bitsInput.value = String(mask);
+          if (applyNetwork()) {
+            document.querySelector('.results')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        });
+        action.appendChild(use);
+        row.appendChild(action);
+
+        ladder.appendChild(row);
+      }
+    }
+
+    if (lookupResults) lookupResults.hidden = false;
+    syncUrl();
+
+    // A pasted prefix is a hint about which row the reader cares about.
+    const wanted = Number(prefixPart);
+    if (Number.isInteger(wanted) && wanted >= 0 && wanted <= 32) {
+      ladder?.children[wanted]?.scrollIntoView({ block: 'center' });
+    }
+  }
+
+  const escapeHtml = (s: string) =>
+    s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
+
+  lookupForm?.addEventListener('submit', (event) => {
+    event.preventDefault();
+    inspect(lookupInput?.value ?? '');
+  });
+
   // ------------------------------------------------------------------- init
 
   const params = new URLSearchParams(location.search);
@@ -644,5 +1047,12 @@ const presets = [
       loadNode(root, bits);
       render();
     }
+  }
+
+  // ?ip=192.168.255.1 opens straight into the lookup, so a result is linkable.
+  const qsIp = params.get('ip');
+  if (qsIp) {
+    if (lookupInput) lookupInput.value = qsIp;
+    inspect(qsIp);
   }
 </script>
