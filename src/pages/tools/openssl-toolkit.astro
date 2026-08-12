@@ -1,0 +1,1170 @@
+---
+import ToolLayout from '../../layouts/ToolLayout.astro';
+---
+
+<ToolLayout slug="openssl-toolkit">
+  <div class="tool-panel">
+    <div class="tool-head-row">
+      <p class="tool-panel__title">PEM input</p>
+      <div class="tool-actions">
+        <button type="button" class="btn btn--sm sample" data-sample="match">Sample: matching pair</button>
+        <button type="button" class="btn btn--sm sample" data-sample="mismatch">Sample: mismatch</button>
+        <button type="button" class="btn btn--sm" id="clear-btn">Clear</button>
+      </div>
+    </div>
+
+    <label class="visually-hidden" for="pem">Certificates, keys or CSRs in PEM format</label>
+    <textarea
+      id="pem"
+      class="tool-textarea"
+      rows="12"
+      spellcheck="false"
+      autocomplete="off"
+      placeholder={`Paste one or more PEM blocks. Put a certificate and its key in together and this will tell you whether they match.
+
+-----BEGIN CERTIFICATE-----
+MIIDazCCAlOgAwIBAgIUL...
+-----END CERTIFICATE-----
+
+-----BEGIN PRIVATE KEY-----
+MIIEvgIBADANBgkqhkiG9w0...
+-----END PRIVATE KEY-----`}
+    ></textarea>
+
+    <p id="status" class="tool-status" role="status"></p>
+
+    <p class="privacy-shout">
+      <strong>Nothing here is uploaded.</strong> Parsing happens in this tab, which is the only reason
+      it is safe to paste a private key. Any site that asks for one and does the work on a server has
+      your key.
+    </p>
+  </div>
+
+  <div id="results" hidden>
+    <div class="tool-panel" id="match-panel" hidden>
+      <p class="tool-panel__title">Do they match?</p>
+      <p class="verdict" id="verdict"></p>
+      <dl class="kv" id="match-detail"></dl>
+    </div>
+
+    <div id="items"></div>
+
+    <div class="tool-panel" id="findings-panel" hidden>
+      <p class="tool-panel__title">Worth knowing</p>
+      <ul class="findings" id="findings"></ul>
+    </div>
+
+    <div class="tool-panel">
+      <div class="tool-head-row">
+        <p class="tool-panel__title">The same thing with openssl</p>
+        <div class="tool-actions">
+          <button type="button" class="btn btn--sm" id="copy-cmds">Copy</button>
+        </div>
+      </div>
+      <p class="caption dim">
+        These are the commands behind what you just read, plus the ones worth keeping in your notes.
+      </p>
+      <pre class="tool-output" id="commands"></pre>
+    </div>
+  </div>
+
+  <div class="tool-panel notes-panel">
+    <p class="tool-panel__title">How the match is actually decided</p>
+    <ul class="notes">
+      <li>
+        <strong>A key pair is matched on its public half.</strong> For RSA the modulus in the private
+        key is compared against the modulus in the certificate. For an elliptic curve key it is the
+        public point and the curve. Nothing is signed or decrypted to prove it, because the
+        comparison is exact — two keys either share a modulus or they do not.
+      </li>
+      <li>
+        <strong>Encrypted private keys cannot be read without the passphrase.</strong> If you paste
+        one, this page will say so rather than guess. Decrypt it first with
+        <code>openssl pkey -in key.pem -out plain.pem</code>, and delete the plaintext copy after.
+      </li>
+      <li>
+        <strong>A certificate proves nothing on its own.</strong> This page reads what a certificate
+        claims — subject, validity, extensions. It does not verify the signature chain up to a
+        trusted root, so a self-signed certificate claiming to be a bank looks structurally fine here.
+        Chain verification is <code>openssl verify -CAfile ca.pem cert.pem</code>.
+      </li>
+      <li>
+        <strong>For mutual TLS, the extended key usage is what bites.</strong> A client certificate
+        needs <code>clientAuth</code> in its EKU, and a server certificate needs
+        <code>serverAuth</code>. A certificate with only one of them will fail in the other role, and
+        the error message is rarely that clear.
+      </li>
+    </ul>
+  </div>
+
+  <noscript>
+    <p class="tool-status tool-status--error">
+      This inspector needs JavaScript — it parses everything in your browser.
+    </p>
+  </noscript>
+</ToolLayout>
+
+<style>
+  .privacy-shout {
+    font-size: 0.82rem;
+    line-height: 1.55;
+    color: var(--fg-2);
+    margin-top: 0.9rem;
+    padding: 0.7rem 0.85rem;
+    border-radius: var(--r);
+    border: 1px solid color-mix(in oklab, var(--health) 35%, transparent);
+    background: var(--health-soft);
+  }
+
+  .privacy-shout strong {
+    color: var(--fg);
+  }
+
+  .verdict {
+    font-size: 0.95rem;
+    line-height: 1.55;
+    color: var(--fg-2);
+    padding: 0.85rem 1rem;
+    border-radius: var(--r);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--line-3);
+    background: var(--bg);
+    margin-bottom: 1rem;
+  }
+
+  .verdict strong {
+    display: block;
+    color: var(--fg);
+    font-weight: 600;
+    margin-bottom: 0.15rem;
+  }
+
+  .verdict.is-match {
+    border-left-color: var(--health);
+  }
+
+  .verdict.is-mismatch {
+    border-left-color: var(--alert);
+  }
+
+  .verdict.is-unknown {
+    border-left-color: var(--guard);
+  }
+
+  .item {
+    margin-top: 1rem;
+  }
+
+  .item__head {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.9rem;
+  }
+
+  .item__label {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--fg-3);
+  }
+
+  .caption {
+    font-size: 0.78rem;
+    margin-bottom: 0.7rem;
+  }
+
+  .dim {
+    color: var(--fg-3);
+  }
+
+  .san-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .findings {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 0.7rem;
+  }
+
+  .findings li {
+    display: grid;
+    grid-template-columns: 0.45rem 1fr;
+    gap: 0.75rem;
+    font-size: 0.86rem;
+    color: var(--fg-2);
+    line-height: 1.55;
+  }
+
+  .findings li::before {
+    content: '';
+    border-radius: 2px;
+    background: var(--line-3);
+  }
+
+  .findings li.is-good::before {
+    background: var(--health);
+  }
+  .findings li.is-warn::before {
+    background: var(--guard);
+  }
+  .findings li.is-bad::before {
+    background: var(--alert);
+  }
+  .findings li.is-info::before {
+    background: var(--signal);
+  }
+
+  .findings strong {
+    display: block;
+    color: var(--fg);
+    font-weight: 600;
+    margin-bottom: 0.15rem;
+  }
+
+  .notes {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 0.8rem;
+    font-size: 0.86rem;
+    color: var(--fg-2);
+    line-height: 1.6;
+  }
+
+  .notes strong {
+    color: var(--fg);
+    font-weight: 600;
+  }
+
+  .notes-panel {
+    margin-top: 1rem;
+  }
+
+  .mono-break {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    word-break: break-all;
+  }
+</style>
+
+<script>
+  // ==========================================================================
+  // A small DER/ASN.1 reader and just enough X.509 to answer the questions
+  // people actually have: what is this, and does it go with that.
+  //
+  // Everything runs in the visitor's browser. Nothing is transmitted, which is
+  // the entire reason it is defensible to paste a private key into a web page.
+  // ==========================================================================
+
+  type Level = 'good' | 'warn' | 'bad' | 'info';
+
+  interface Finding {
+    level: Level;
+    title: string;
+    detail: string;
+  }
+
+  /** A parsed DER node. `content` excludes the tag and length bytes. */
+  interface Node {
+    tag: number;
+    constructed: boolean;
+    content: Uint8Array;
+    children: Node[];
+    /** The whole element including its header, for hashing and re-encoding. */
+    raw: Uint8Array;
+  }
+
+  interface PublicIdentity {
+    /** 'RSA' | 'EC' | 'Ed25519' | … */
+    algorithm: string;
+    /** Bit size for RSA/DSA, or the curve's field size. */
+    bits?: number;
+    curve?: string;
+    /**
+     * The value two artefacts must share to be a pair: an RSA modulus, an EC
+     * public point, or a raw Edwards public key. Hex, lower case.
+     */
+    fingerprintable: string;
+  }
+
+  interface Item {
+    label: string;
+    kind: 'certificate' | 'private key' | 'public key' | 'csr' | 'unknown';
+    der: Uint8Array;
+    identity?: PublicIdentity;
+    rows: [string, string][];
+    sans: string[];
+    eku: string[];
+    notAfter?: Date;
+    notBefore?: Date;
+    selfSigned?: boolean;
+    isCa?: boolean;
+    sigAlg?: string;
+    encrypted?: boolean;
+    error?: string;
+  }
+
+  // ------------------------------------------------------------------- OIDs
+
+  const OIDS: Record<string, string> = {
+    '1.2.840.113549.1.1.1': 'RSA',
+    '1.2.840.113549.1.1.5': 'SHA-1 with RSA',
+    '1.2.840.113549.1.1.10': 'RSASSA-PSS',
+    '1.2.840.113549.1.1.11': 'SHA-256 with RSA',
+    '1.2.840.113549.1.1.12': 'SHA-384 with RSA',
+    '1.2.840.113549.1.1.13': 'SHA-512 with RSA',
+    '1.2.840.10040.4.1': 'DSA',
+    '1.2.840.10045.2.1': 'EC',
+    '1.2.840.10045.4.3.2': 'ECDSA with SHA-256',
+    '1.2.840.10045.4.3.3': 'ECDSA with SHA-384',
+    '1.2.840.10045.4.3.4': 'ECDSA with SHA-512',
+    '1.3.101.110': 'X25519',
+    '1.3.101.111': 'X448',
+    '1.3.101.112': 'Ed25519',
+    '1.3.101.113': 'Ed448',
+  };
+
+  const CURVES: Record<string, { name: string; bits: number }> = {
+    '1.2.840.10045.3.1.7': { name: 'P-256 (prime256v1)', bits: 256 },
+    '1.3.132.0.34': { name: 'P-384 (secp384r1)', bits: 384 },
+    '1.3.132.0.35': { name: 'P-521 (secp521r1)', bits: 521 },
+    '1.3.132.0.10': { name: 'secp256k1', bits: 256 },
+    '1.2.840.10045.3.1.1': { name: 'P-192 (prime192v1)', bits: 192 },
+    '1.3.132.0.33': { name: 'P-224 (secp224r1)', bits: 224 },
+  };
+
+  const RDN: Record<string, string> = {
+    '2.5.4.3': 'CN',
+    '2.5.4.6': 'C',
+    '2.5.4.7': 'L',
+    '2.5.4.8': 'ST',
+    '2.5.4.9': 'STREET',
+    '2.5.4.10': 'O',
+    '2.5.4.11': 'OU',
+    '2.5.4.5': 'serialNumber',
+    '0.9.2342.19200300.100.1.25': 'DC',
+    '1.2.840.113549.1.9.1': 'email',
+  };
+
+  const EXT: Record<string, string> = {
+    '2.5.29.14': 'Subject key identifier',
+    '2.5.29.15': 'Key usage',
+    '2.5.29.17': 'Subject alternative name',
+    '2.5.29.19': 'Basic constraints',
+    '2.5.29.31': 'CRL distribution points',
+    '2.5.29.32': 'Certificate policies',
+    '2.5.29.35': 'Authority key identifier',
+    '2.5.29.37': 'Extended key usage',
+    '1.3.6.1.5.5.7.1.1': 'Authority information access',
+  };
+
+  const EKU: Record<string, string> = {
+    '1.3.6.1.5.5.7.3.1': 'serverAuth',
+    '1.3.6.1.5.5.7.3.2': 'clientAuth',
+    '1.3.6.1.5.5.7.3.3': 'codeSigning',
+    '1.3.6.1.5.5.7.3.4': 'emailProtection',
+    '1.3.6.1.5.5.7.3.8': 'timeStamping',
+    '1.3.6.1.5.5.7.3.9': 'OCSPSigning',
+  };
+
+  const KEY_USAGE = [
+    'digitalSignature',
+    'nonRepudiation',
+    'keyEncipherment',
+    'dataEncipherment',
+    'keyAgreement',
+    'keyCertSign',
+    'cRLSign',
+    'encipherOnly',
+    'decipherOnly',
+  ];
+
+  // -------------------------------------------------------------- DER reader
+
+  function parseDer(bytes: Uint8Array, offset = 0): { node: Node; next: number } {
+    const start = offset;
+    const tag = bytes[offset++];
+    if (tag === undefined) throw new Error('truncated element');
+
+    let length = bytes[offset++];
+    if (length === undefined) throw new Error('truncated length');
+
+    if (length & 0x80) {
+      const count = length & 0x7f;
+      if (count === 0 || count > 4) throw new Error('unsupported length form');
+      length = 0;
+      for (let i = 0; i < count; i++) length = (length << 8) | bytes[offset++];
+    }
+
+    const content = bytes.subarray(offset, offset + length);
+    if (content.length !== length) throw new Error('truncated content');
+
+    const constructed = (tag & 0x20) !== 0;
+    const node: Node = {
+      tag,
+      constructed,
+      content,
+      children: [],
+      raw: bytes.subarray(start, offset + length),
+    };
+
+    if (constructed) {
+      let inner = 0;
+      while (inner < content.length) {
+        const read = parseDer(content, inner);
+        node.children.push(read.node);
+        inner = read.next;
+      }
+    }
+
+    return { node, next: offset + length };
+  }
+
+  const seq = (node: Node, ...path: number[]): Node => {
+    let current = node;
+    for (const index of path) {
+      const next = current.children[index];
+      if (!next) throw new Error('unexpected structure');
+      current = next;
+    }
+    return current;
+  };
+
+  function readOid(node: Node): string {
+    const b = node.content;
+    if (!b.length) return '';
+    const parts = [Math.floor(b[0] / 40), b[0] % 40];
+    let value = 0;
+    for (let i = 1; i < b.length; i++) {
+      value = value * 128 + (b[i] & 0x7f);
+      if (!(b[i] & 0x80)) {
+        parts.push(value);
+        value = 0;
+      }
+    }
+    return parts.join('.');
+  }
+
+  const toHex = (b: Uint8Array) =>
+    Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('');
+
+  const readText = (node: Node) => new TextDecoder().decode(node.content);
+
+  /** Strip the leading zero DER adds to keep an INTEGER positive. */
+  function readInteger(node: Node): Uint8Array {
+    let b = node.content;
+    while (b.length > 1 && b[0] === 0) b = b.subarray(1);
+    return b;
+  }
+
+  /** UTCTime is a two-digit year; GeneralizedTime is four. */
+  function readTime(node: Node): Date {
+    const s = readText(node);
+    const m = /^(\d{2})?(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})?(\d{2})?Z?$/.exec(s);
+    if (!m) return new Date(NaN);
+
+    if (node.tag === 0x17) {
+      // UTCTime: 50–99 means 1950–1999, 00–49 means 2000–2049.
+      const yy = Number(s.slice(0, 2));
+      const year = yy >= 50 ? 1900 + yy : 2000 + yy;
+      return new Date(
+        Date.UTC(
+          year,
+          Number(s.slice(2, 4)) - 1,
+          Number(s.slice(4, 6)),
+          Number(s.slice(6, 8)),
+          Number(s.slice(8, 10)),
+          Number(s.slice(10, 12) || '0'),
+        ),
+      );
+    }
+
+    return new Date(
+      Date.UTC(
+        Number(s.slice(0, 4)),
+        Number(s.slice(4, 6)) - 1,
+        Number(s.slice(6, 8)),
+        Number(s.slice(8, 10)),
+        Number(s.slice(10, 12)),
+        Number(s.slice(12, 14) || '0'),
+      ),
+    );
+  }
+
+  /** RDNSequence → "CN=example.com, O=Test" */
+  function readName(node: Node): string {
+    const parts: string[] = [];
+    for (const rdn of node.children) {
+      for (const attr of rdn.children) {
+        const oid = readOid(attr.children[0]);
+        const value = attr.children[1] ? readText(attr.children[1]) : '';
+        parts.push(`${RDN[oid] ?? oid}=${value}`);
+      }
+    }
+    return parts.join(', ');
+  }
+
+  // ------------------------------------------------------------ key parsing
+
+  /** SubjectPublicKeyInfo → the identity used for pair matching. */
+  function readSpki(spki: Node): PublicIdentity {
+    const algOid = readOid(seq(spki, 0, 0));
+    const algorithm = OIDS[algOid] ?? algOid;
+    // BIT STRING content begins with the count of unused trailing bits.
+    const bits = spki.children[1].content.subarray(1);
+
+    if (algorithm === 'RSA') {
+      const inner = parseDer(bits).node;
+      const modulus = readInteger(inner.children[0]);
+      return {
+        algorithm: 'RSA',
+        bits: modulus.length * 8,
+        fingerprintable: toHex(modulus),
+      };
+    }
+
+    if (algorithm === 'EC') {
+      const curveOid = readOid(seq(spki, 0, 1));
+      const curve = CURVES[curveOid];
+      return {
+        algorithm: 'EC',
+        curve: curve?.name ?? curveOid,
+        bits: curve?.bits,
+        fingerprintable: toHex(bits),
+      };
+    }
+
+    return { algorithm, bits: bits.length * 8, fingerprintable: toHex(bits) };
+  }
+
+  /** Pull the public half out of a private key, in whichever form it arrived. */
+  function readPrivateKey(root: Node, label: string): PublicIdentity | undefined {
+    if (label.includes('RSA PRIVATE KEY')) {
+      // PKCS#1: version, modulus, publicExponent, privateExponent, …
+      const modulus = readInteger(root.children[1]);
+      return { algorithm: 'RSA', bits: modulus.length * 8, fingerprintable: toHex(modulus) };
+    }
+
+    if (label.includes('EC PRIVATE KEY')) return readSec1(root);
+
+    // PKCS#8: version, AlgorithmIdentifier, OCTET STRING wrapping the real key.
+    const algOid = readOid(seq(root, 1, 0));
+    const algorithm = OIDS[algOid] ?? algOid;
+    const inner = root.children[2];
+
+    if (algorithm === 'RSA') {
+      const pkcs1 = parseDer(inner.content).node;
+      const modulus = readInteger(pkcs1.children[1]);
+      return { algorithm: 'RSA', bits: modulus.length * 8, fingerprintable: toHex(modulus) };
+    }
+
+    if (algorithm === 'EC') {
+      const sec1 = parseDer(inner.content).node;
+      const identity = readSec1(sec1);
+      if (identity && !identity.curve) {
+        const curveOid = readOid(seq(root, 1, 1));
+        const curve = CURVES[curveOid];
+        identity.curve = curve?.name ?? curveOid;
+        identity.bits = curve?.bits;
+      }
+      return identity;
+    }
+
+    if (algorithm === 'Ed25519' || algorithm === 'Ed448' || algorithm === 'X25519') {
+      // The private key is itself DER-wrapped inside the OCTET STRING, and the
+      // public half is not stored — it has to be derived, which needs the curve
+      // maths this page deliberately does not carry.
+      return { algorithm, fingerprintable: '' };
+    }
+
+    return { algorithm, fingerprintable: '' };
+  }
+
+  /** SEC1: version, privateKey, [0] curve, [1] public point. */
+  function readSec1(root: Node): PublicIdentity | undefined {
+    let curve: string | undefined;
+    let bits: number | undefined;
+    let point = '';
+
+    for (const child of root.children) {
+      if (child.tag === 0xa0 && child.children[0]) {
+        const oid = readOid(child.children[0]);
+        curve = CURVES[oid]?.name ?? oid;
+        bits = CURVES[oid]?.bits;
+      }
+      if (child.tag === 0xa1 && child.children[0]) {
+        point = toHex(child.children[0].content.subarray(1));
+      }
+    }
+
+    return { algorithm: 'EC', curve, bits, fingerprintable: point };
+  }
+
+  // ----------------------------------------------------------- X.509 reading
+
+  function readExtensions(tbs: Node, item: Item) {
+    const extsHolder = tbs.children.find((c) => c.tag === 0xa3);
+    if (!extsHolder?.children[0]) return;
+
+    for (const ext of extsHolder.children[0].children) {
+      const oid = readOid(ext.children[0]);
+      const critical = ext.children[1]?.tag === 0x01 && ext.children[1].content[0] !== 0;
+      const valueNode = ext.children[ext.children.length - 1];
+      const name = EXT[oid] ?? oid;
+
+      try {
+        const inner = parseDer(valueNode.content).node;
+
+        if (oid === '2.5.29.17') {
+          for (const gn of inner.children) {
+            const text = readText(gn);
+            if (gn.tag === 0x82) item.sans.push(`DNS:${text}`);
+            else if (gn.tag === 0x81) item.sans.push(`email:${text}`);
+            else if (gn.tag === 0x86) item.sans.push(`URI:${text}`);
+            else if (gn.tag === 0x87) item.sans.push(`IP:${Array.from(gn.content).join('.')}`);
+            else item.sans.push(text);
+          }
+        } else if (oid === '2.5.29.37') {
+          for (const usage of inner.children) {
+            const u = readOid(usage);
+            item.eku.push(EKU[u] ?? u);
+          }
+          item.rows.push(['Extended key usage', item.eku.join(', ')]);
+        } else if (oid === '2.5.29.15') {
+          const unused = inner.content[0];
+          const flags: string[] = [];
+          for (let i = 0; i < KEY_USAGE.length; i++) {
+            const byte = inner.content[1 + Math.floor(i / 8)];
+            if (byte === undefined) break;
+            if (i >= (inner.content.length - 1) * 8 - unused) break;
+            if (byte & (0x80 >> i % 8)) flags.push(KEY_USAGE[i]);
+          }
+          item.rows.push([`Key usage${critical ? ' (critical)' : ''}`, flags.join(', ')]);
+        } else if (oid === '2.5.29.19') {
+          const isCa = inner.children[0]?.tag === 0x01 && inner.children[0].content[0] !== 0;
+          item.isCa = isCa;
+          item.rows.push(['Basic constraints', isCa ? 'CA: true' : 'CA: false']);
+        } else if (oid === '2.5.29.14') {
+          item.rows.push([name, toHex(inner.content)]);
+        }
+      } catch {
+        item.rows.push([name, '(unparsed)']);
+      }
+    }
+  }
+
+  function readCertificate(root: Node, item: Item) {
+    const tbs = root.children[0];
+    // An explicit [0] version tag shifts every field that follows it along one.
+    const versioned = tbs.children[0]?.tag === 0xa0;
+    const at = (i: number) => tbs.children[i + (versioned ? 1 : 0)];
+
+    const version = versioned ? Number(tbs.children[0].children[0].content[0]) + 1 : 1;
+    item.rows.push(['Version', `v${version}`]);
+    item.rows.push(['Serial', toHex(readInteger(at(0)))]);
+
+    const sigOid = readOid(seq(root, 1, 0));
+    item.sigAlg = OIDS[sigOid] ?? sigOid;
+    item.rows.push(['Signature algorithm', item.sigAlg]);
+
+    const issuer = readName(at(2));
+    const subject = readName(at(4));
+    item.rows.push(['Subject', subject]);
+    item.rows.push(['Issuer', issuer]);
+    item.selfSigned = issuer === subject;
+
+    const validity = at(3);
+    item.notBefore = readTime(validity.children[0]);
+    item.notAfter = readTime(validity.children[1]);
+
+    item.identity = readSpki(at(5));
+    readExtensions(tbs, item);
+  }
+
+  function readCsr(root: Node, item: Item) {
+    const info = root.children[0];
+    item.rows.push(['Subject', readName(info.children[1])]);
+    item.identity = readSpki(info.children[2]);
+
+    const sigOid = readOid(seq(root, 1, 0));
+    item.sigAlg = OIDS[sigOid] ?? sigOid;
+    item.rows.push(['Signature algorithm', item.sigAlg]);
+
+    // Requested SANs arrive inside the extensionRequest attribute.
+    const attrs = info.children[3];
+    if (attrs?.tag === 0xa0) {
+      const walk = (node: Node) => {
+        if (node.tag === 0x30 && node.children[0]?.tag === 0x06) {
+          if (readOid(node.children[0]) === '2.5.29.17') {
+            try {
+              const names = parseDer(node.children[node.children.length - 1].content).node;
+              for (const gn of names.children) {
+                if (gn.tag === 0x82) item.sans.push(`DNS:${readText(gn)}`);
+                else if (gn.tag === 0x87) item.sans.push(`IP:${Array.from(gn.content).join('.')}`);
+              }
+            } catch {
+              /* an attribute we cannot read is not worth failing the CSR over */
+            }
+          }
+        }
+        for (const child of node.children) walk(child);
+      };
+      walk(attrs);
+    }
+  }
+
+  // ------------------------------------------------------------ PEM handling
+
+  interface Block {
+    label: string;
+    der: Uint8Array;
+  }
+
+  function readPem(text: string): Block[] {
+    const blocks: Block[] = [];
+    const re = /-----BEGIN ([A-Z0-9 ]+)-----([\s\S]*?)-----END \1-----/g;
+
+    for (const match of text.matchAll(re)) {
+      const body = match[2].replace(/[^A-Za-z0-9+/=]/g, '');
+      try {
+        const binary = atob(body);
+        const der = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) der[i] = binary.charCodeAt(i);
+        blocks.push({ label: match[1], der });
+      } catch {
+        /* a block whose base64 will not decode is reported by the caller */
+      }
+    }
+
+    return blocks;
+  }
+
+  function classify(label: string): Item['kind'] {
+    if (label.includes('CERTIFICATE REQUEST')) return 'csr';
+    if (label.includes('CERTIFICATE')) return 'certificate';
+    if (label.includes('PRIVATE KEY')) return 'private key';
+    if (label.includes('PUBLIC KEY')) return 'public key';
+    return 'unknown';
+  }
+
+  // ------------------------------------------------------------- inspection
+
+  function inspect(block: Block): Item {
+    const item: Item = {
+      label: block.label,
+      kind: classify(block.label),
+      der: block.der,
+      rows: [],
+      sans: [],
+      eku: [],
+    };
+
+    if (block.label.includes('ENCRYPTED')) {
+      item.encrypted = true;
+      item.error =
+        'This key is encrypted, so nothing inside it can be read without the passphrase.';
+      return item;
+    }
+
+    try {
+      const root = parseDer(block.der).node;
+
+      if (item.kind === 'certificate') readCertificate(root, item);
+      else if (item.kind === 'csr') readCsr(root, item);
+      else if (item.kind === 'private key') item.identity = readPrivateKey(root, block.label);
+      else if (item.kind === 'public key') {
+        item.identity = block.label.includes('RSA PUBLIC KEY')
+          ? {
+              algorithm: 'RSA',
+              bits: readInteger(root.children[0]).length * 8,
+              fingerprintable: toHex(readInteger(root.children[0])),
+            }
+          : readSpki(root);
+      } else item.error = `Unrecognised PEM label: ${block.label}`;
+    } catch (error) {
+      item.error = `Could not parse this block: ${error instanceof Error ? error.message : error}`;
+    }
+
+    return item;
+  }
+
+  // --------------------------------------------------------------- findings
+
+  function buildFindings(items: Item[]): Finding[] {
+    const out: Finding[] = [];
+    const now = Date.now();
+
+    for (const item of items) {
+      const who = item.rows.find(([k]) => k === 'Subject')?.[1] ?? item.kind;
+
+      if (item.notAfter && !Number.isNaN(item.notAfter.valueOf())) {
+        const days = Math.round((item.notAfter.valueOf() - now) / 86_400_000);
+        if (days < 0) {
+          out.push({
+            level: 'bad',
+            title: `Expired ${Math.abs(days)} day${Math.abs(days) === 1 ? '' : 's'} ago`,
+            detail: `${who} stopped being valid on ${item.notAfter.toUTCString()}.`,
+          });
+        } else if (days <= 30) {
+          out.push({
+            level: 'warn',
+            title: `Expires in ${days} day${days === 1 ? '' : 's'}`,
+            detail: `${who} is valid until ${item.notAfter.toUTCString()}. Renew it before something breaks at an inconvenient hour.`,
+          });
+        }
+      }
+
+      if (item.notBefore && item.notBefore.valueOf() > now) {
+        out.push({
+          level: 'warn',
+          title: 'Not valid yet',
+          detail: `${who} does not become valid until ${item.notBefore.toUTCString()} — check the clock on whichever machine issued it.`,
+        });
+      }
+
+      if (item.identity?.algorithm === 'RSA' && (item.identity.bits ?? 0) < 2048) {
+        out.push({
+          level: 'bad',
+          title: `RSA key is only ${item.identity.bits} bits`,
+          detail:
+            'Anything below 2048 bits is rejected by modern browsers and by most CAs. Generate a new key rather than trying to renew this one.',
+        });
+      }
+
+      if (item.sigAlg?.includes('SHA-1')) {
+        out.push({
+          level: 'bad',
+          title: 'Signed with SHA-1',
+          detail:
+            'SHA-1 signatures have been rejected by browsers since 2017. The certificate needs reissuing with SHA-256 or better.',
+        });
+      }
+
+      if (item.kind === 'certificate' && item.sans.length === 0) {
+        out.push({
+          level: 'warn',
+          title: 'No subject alternative names',
+          detail:
+            'Browsers have ignored the common name since 2017 and match on SAN only, so this certificate will fail hostname verification no matter what its CN says.',
+        });
+      }
+
+      if (item.kind === 'certificate' && item.selfSigned && !item.isCa) {
+        out.push({
+          level: 'info',
+          title: 'Self-signed',
+          detail:
+            'Issuer and subject are identical, so nothing vouches for this certificate but itself. Fine for a lab, not for anything a browser has to trust.',
+        });
+      }
+
+      if (item.kind === 'private key' && item.identity && !item.identity.fingerprintable) {
+        out.push({
+          level: 'info',
+          title: `Cannot match an ${item.identity.algorithm} private key here`,
+          detail:
+            'An Edwards private key does not store its public half — deriving it needs the curve arithmetic this page deliberately does not carry. Compare them with openssl instead: openssl pkey -in key.pem -pubout | diff - <(openssl x509 -in cert.pem -pubkey -noout).',
+        });
+      }
+
+      if (item.eku.length) {
+        const client = item.eku.includes('clientAuth');
+        const server = item.eku.includes('serverAuth');
+        if (client && !server) {
+          out.push({
+            level: 'info',
+            title: 'Client certificate only',
+            detail:
+              'The extended key usage allows clientAuth but not serverAuth, so this works for mutual TLS as a client and will be rejected if you install it on a server.',
+          });
+        } else if (server && !client) {
+          out.push({
+            level: 'info',
+            title: 'Server certificate only',
+            detail:
+              'The extended key usage allows serverAuth but not clientAuth. If you are trying to use this for mutual TLS as a client, that is why it is being refused.',
+          });
+        }
+      }
+    }
+
+    return out;
+  }
+
+  // ------------------------------------------------------------- rendering
+
+  const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T | null;
+
+  const esc = (s: string) =>
+    s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
+
+  const input = $<HTMLTextAreaElement>('pem');
+  const results = $('results');
+  const status = $('status');
+
+  const groupSize = (hex: string) => `${hex.length * 4} bits`;
+
+  async function sha256(bytes: Uint8Array): Promise<string> {
+    const digest = await crypto.subtle.digest('SHA-256', bytes as BufferSource);
+    return toHex(new Uint8Array(digest));
+  }
+
+  function setStatus(message: string, kind: '' | 'error' | 'ok' = '') {
+    if (!status) return;
+    status.textContent = message;
+    status.className = `tool-status${kind ? ` tool-status--${kind}` : ''}`;
+  }
+
+  function renderMatch(items: Item[]) {
+    const panel = $('match-panel');
+    const verdict = $('verdict');
+    const detail = $('match-detail');
+    if (!panel || !verdict || !detail) return;
+
+    const comparable = items.filter((i) => i.identity?.fingerprintable);
+    if (comparable.length < 2) {
+      panel.hidden = true;
+      return;
+    }
+
+    panel.hidden = false;
+    const [first, ...rest] = comparable;
+    const allMatch = rest.every((i) => i.identity!.fingerprintable === first.identity!.fingerprintable);
+
+    verdict.className = `verdict is-${allMatch ? 'match' : 'mismatch'}`;
+    verdict.innerHTML = allMatch
+      ? `<strong>Yes — these belong together.</strong>The ${comparable
+          .map((i) => i.kind)
+          .join(' and the ')} share the same public key, so the private key is the one that goes with the certificate.`
+      : `<strong>No — these do not match.</strong>The public halves are different, which means this private key was not used to create this certificate. Deploying them together produces "key values mismatch" from nginx, or SSL_CTX_use_PrivateKey error from Apache.`;
+
+    detail.innerHTML = comparable
+      .map(
+        (i) =>
+          `<div><dt>${esc(i.kind)}</dt><dd class="mono-break">${esc(
+            i.identity!.algorithm === 'RSA'
+              ? `modulus ${i.identity!.fingerprintable.slice(0, 32)}… (${groupSize(i.identity!.fingerprintable)})`
+              : `public point ${i.identity!.fingerprintable.slice(0, 32)}…`,
+          )}</dd></div>`,
+      )
+      .join('');
+  }
+
+  async function renderItems(items: Item[]) {
+    const container = $('items');
+    if (!container) return;
+    container.replaceChildren();
+
+    for (const item of items) {
+      const panel = document.createElement('div');
+      panel.className = 'tool-panel item';
+
+      const rows: [string, string][] = [...item.rows];
+
+      if (item.identity) {
+        const id = item.identity;
+        const size = id.curve ? id.curve : id.bits ? `${id.bits} bits` : '—';
+        rows.unshift(['Algorithm', `${id.algorithm} · ${size}`]);
+      }
+
+      if (item.notBefore && item.notAfter) {
+        rows.push(['Valid from', item.notBefore.toUTCString()]);
+        rows.push(['Valid until', item.notAfter.toUTCString()]);
+      }
+
+      if (item.sans.length) rows.push(['Subject alternative names', item.sans.join(', ')]);
+
+      rows.push(['SHA-256 fingerprint', await sha256(item.der)]);
+
+      panel.innerHTML =
+        `<div class="item__head"><span class="item__label">${esc(item.kind)}</span>` +
+        `<span class="chip">${esc(item.label)}</span></div>` +
+        (item.error ? `<p class="tool-status tool-status--error">${esc(item.error)}</p>` : '') +
+        `<dl class="kv">${rows
+          .map(([k, v]) => `<div><dt>${esc(k)}</dt><dd class="mono-break">${esc(v)}</dd></div>`)
+          .join('')}</dl>`;
+
+      container.appendChild(panel);
+    }
+  }
+
+  function renderFindings(items: Item[]) {
+    const panel = $('findings-panel');
+    const list = $('findings');
+    if (!panel || !list) return;
+
+    const findings = buildFindings(items);
+    panel.hidden = findings.length === 0;
+    list.innerHTML = findings
+      .map(
+        (f) =>
+          `<li class="is-${f.level}"><div><strong>${esc(f.title)}</strong>${esc(f.detail)}</div></li>`,
+      )
+      .join('');
+  }
+
+  function renderCommands(items: Item[]) {
+    const pre = $('commands');
+    if (!pre) return;
+
+    const has = (k: Item['kind']) => items.some((i) => i.kind === k);
+    const lines: string[] = [];
+
+    lines.push('# What this page just did, on the command line');
+    if (has('certificate') && has('private key')) {
+      lines.push('# Compare the public halves — identical output means they match');
+      lines.push('openssl x509 -in cert.pem -pubkey -noout | openssl pkey -pubin -outform DER | sha256sum');
+      lines.push('openssl pkey -in key.pem -pubout -outform DER | sha256sum');
+      lines.push('');
+    }
+    if (has('certificate')) {
+      lines.push('# Read a certificate');
+      lines.push('openssl x509 -in cert.pem -noout -text');
+      lines.push('openssl x509 -in cert.pem -noout -subject -issuer -dates -fingerprint -sha256');
+      lines.push('');
+    }
+    if (has('csr')) {
+      lines.push('# Read a CSR, including the SANs it asks for');
+      lines.push('openssl req -in request.csr -noout -text -verify');
+      lines.push('');
+    }
+    if (has('private key')) {
+      lines.push('# Read a private key, and decrypt one that is passphrase-protected');
+      lines.push('openssl pkey -in key.pem -noout -text');
+      lines.push('openssl pkey -in encrypted.pem -out plain.pem');
+      lines.push('');
+    }
+
+    lines.push('# Things worth keeping in your notes');
+    lines.push('# Make a key and a self-signed cert with SANs in one go');
+    lines.push('openssl req -x509 -newkey rsa:2048 -keyout key.pem -out cert.pem -days 365 -nodes \\');
+    lines.push('  -subj "/CN=example.com" -addext "subjectAltName=DNS:example.com,DNS:www.example.com"');
+    lines.push('');
+    lines.push('# Modern keys are smaller and faster than RSA');
+    lines.push('openssl ecparam -name prime256v1 -genkey -noout -out ec.key');
+    lines.push('openssl genpkey -algorithm ed25519 -out ed.key');
+    lines.push('');
+    lines.push('# What is this server actually serving?');
+    lines.push('openssl s_client -connect example.com:443 -servername example.com < /dev/null 2>/dev/null \\');
+    lines.push('  | openssl x509 -noout -subject -dates');
+    lines.push('');
+    lines.push('# Mutual TLS: present a client certificate');
+    lines.push('openssl s_client -connect api.example.com:443 -cert client.crt -key client.key -CAfile ca.crt');
+    lines.push('');
+    lines.push('# Verify a chain properly, which this page does not do');
+    lines.push('openssl verify -CAfile ca.pem -untrusted intermediate.pem cert.pem');
+    lines.push('');
+    lines.push('# Convert between the formats every vendor insists on');
+    lines.push('openssl x509 -in cert.pem -outform DER -out cert.der       # PEM to DER');
+    lines.push('openssl pkcs12 -export -out bundle.p12 -inkey key.pem -in cert.pem -certfile chain.pem');
+    lines.push('openssl pkcs12 -in bundle.p12 -nodes -out everything.pem   # and back out again');
+
+    pre.textContent = lines.join('\n');
+  }
+
+  // ------------------------------------------------------------------- run
+
+  async function run() {
+    const text = input?.value ?? '';
+    if (!text.trim()) {
+      if (results) results.hidden = true;
+      setStatus('');
+      return;
+    }
+
+    const blocks = readPem(text);
+    if (!blocks.length) {
+      if (results) results.hidden = true;
+      setStatus(
+        'No PEM blocks found. Paste something that begins with -----BEGIN — a certificate, key or CSR.',
+        'error',
+      );
+      return;
+    }
+
+    const items = blocks.map(inspect);
+    renderMatch(items);
+    await renderItems(items);
+    renderFindings(items);
+    renderCommands(items);
+
+    if (results) results.hidden = false;
+    const kinds = items.map((i) => i.kind).join(', ');
+    setStatus(`Read ${items.length} block${items.length === 1 ? '' : 's'} — ${kinds}. None of it left this tab.`, 'ok');
+  }
+
+  input?.addEventListener('input', () => void run());
+
+  $('clear-btn')?.addEventListener('click', () => {
+    if (input) input.value = '';
+    void run();
+    input?.focus();
+  });
+
+  $('copy-cmds')?.addEventListener('click', async (event) => {
+    const button = event.currentTarget as HTMLButtonElement;
+    const original = button.textContent;
+    try {
+      await navigator.clipboard.writeText($('commands')?.textContent ?? '');
+      button.textContent = 'Copied ✓';
+    } catch {
+      button.textContent = 'Copy failed';
+    }
+    setTimeout(() => {
+      button.textContent = original;
+    }, 1600);
+  });
+
+  // Samples are generated in the page so no real key material ships with it.
+  const SAMPLES: Record<string, string> = { match: '', mismatch: '' };
+
+  document.querySelectorAll<HTMLButtonElement>('.sample').forEach((button) => {
+    button.addEventListener('click', async () => {
+      const which = button.dataset.sample ?? 'match';
+      if (!SAMPLES[which]) {
+        button.disabled = true;
+        const original = button.textContent;
+        button.textContent = 'Generating…';
+        SAMPLES[which] = await buildSample(which === 'match');
+        button.textContent = original;
+        button.disabled = false;
+      }
+      if (input) input.value = SAMPLES[which];
+      void run();
+    });
+  });
+
+  /**
+   * Build a demo pair with WebCrypto rather than shipping key material in the
+   * page. For the mismatch case the second key is simply a different one.
+   */
+  async function buildSample(shouldMatch: boolean): Promise<string> {
+    const algorithm = { name: 'RSASSA-PKCS1-v1_5', modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: 'SHA-256' };
+    const a = await crypto.subtle.generateKey(algorithm, true, ['sign', 'verify']);
+    const b = shouldMatch ? a : await crypto.subtle.generateKey(algorithm, true, ['sign', 'verify']);
+
+    const priv = new Uint8Array(await crypto.subtle.exportKey('pkcs8', (a as CryptoKeyPair).privateKey));
+    const pub = new Uint8Array(await crypto.subtle.exportKey('spki', (b as CryptoKeyPair).publicKey));
+
+    return `${pem('PRIVATE KEY', priv)}\n${pem('PUBLIC KEY', pub)}`;
+  }
+
+  function pem(label: string, der: Uint8Array): string {
+    let binary = '';
+    for (const byte of der) binary += String.fromCharCode(byte);
+    const body = btoa(binary).replace(/(.{64})/g, '$1\n');
+    return `-----BEGIN ${label}-----\n${body}\n-----END ${label}-----\n`;
+  }
+</script>

@@ -56,6 +56,16 @@ const { name, size = '1.25rem' } = Astro.props;
     )
   }
   {
+    name === 'certificate' && (
+      <>
+        <rect x="3" y="4" width="18" height="13" rx="2" />
+        <path d="M7 9h6M7 12.5h4" />
+        <circle cx="17" cy="17.5" r="3.2" />
+        <path d="m15.4 20.2-.6 2.3 2.2-1.1 2.2 1.1-.6-2.3" />
+      </>
+    )
+  }
+  {
     name === 'key' && (
       <>
         <circle cx="7.5" cy="15.5" r="4.5" />

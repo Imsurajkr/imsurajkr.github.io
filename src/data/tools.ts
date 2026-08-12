@@ -114,6 +114,25 @@ export const tools: Tool[] = [
     },
   },
   {
+    slug: 'openssl-toolkit',
+    name: 'Key & Certificate Inspector',
+    tagline: 'Does this private key match this certificate?',
+    description:
+      'Paste a certificate, a private key, a public key or a CSR — together or one at a time — and find out what algorithm it uses, how big it is, when it expires, and whether the key and the certificate actually belong to each other. Everything is parsed in this tab, which is the only sane place to paste a private key.',
+    seo: 'Free online tool to check whether a private key matches a certificate or CSR, and to decode X.509 certificates, RSA/EC/Ed25519 keys and CSRs. Runs entirely in your browser — no key is ever uploaded.',
+    category: 'Security',
+    icon: 'certificate',
+    keywords: [
+      'does private key match certificate',
+      'check key and certificate match',
+      'decode certificate online',
+      'what algorithm is my key',
+      'csr decoder',
+      'openssl commands',
+      'x509 parser',
+    ],
+  },
+  {
     slug: 'jwt-decoder',
     name: 'JWT Decoder',
     tagline: 'Inspect header, payload and expiry',
