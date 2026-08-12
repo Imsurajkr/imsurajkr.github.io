@@ -8,6 +8,12 @@ export interface Tool {
   category: 'Networking' | 'Encoding' | 'Security' | 'Config' | 'Generators';
   icon: string;
   keywords: string[];
+  /**
+   * The write-up that explains the thing this tool does. Linking the two in
+   * both directions gives a reader the background and gives a crawler a reason
+   * to treat the pair as one topic rather than two unrelated pages.
+   */
+  guide?: { slug: string; title: string; blurb: string };
 }
 
 /**
@@ -35,6 +41,12 @@ export const tools: Tool[] = [
       'what subnet is this IP in',
       'IP address lookup private or public',
     ],
+    guide: {
+      slug: 'reading-an-ipv4-address',
+      title: 'Reading an IPv4 Address',
+      blurb:
+        'Why one address belongs to 33 networks at once, which blocks are reserved, and how to split a range without leaving gaps.',
+    },
   },
   {
     slug: 'traceroute-analyzer',
@@ -53,6 +65,12 @@ export const tools: Tool[] = [
       'network path troubleshooting',
       'packet loss hop',
     ],
+    guide: {
+      slug: 'reading-a-traceroute',
+      title: 'What a Traceroute Actually Tells You',
+      blurb:
+        'How TTL expiry produces the output, why stars in the middle mean nothing, and why a slow hop is usually not the slow hop.',
+    },
   },
   {
     slug: 'pcap-analyzer',
@@ -71,6 +89,12 @@ export const tools: Tool[] = [
       'network traffic analysis',
       'top talkers pcap',
     ],
+    guide: {
+      slug: 'reading-a-packet-capture',
+      title: 'Finding Out What Your Machine Is Talking To',
+      blurb:
+        'Capturing with tcpdump without capturing yourself, and reading conversations rather than packets.',
+    },
   },
   {
     slug: 'base64',
@@ -82,6 +106,12 @@ export const tools: Tool[] = [
     category: 'Encoding',
     icon: 'code',
     keywords: ['base64 encode', 'base64 decode', 'URL-safe base64', 'kubernetes secret decode'],
+    guide: {
+      slug: 'decoding-tokens-safely',
+      title: 'Base64 Is Not Encryption',
+      blurb:
+        'A Kubernetes secret is plain text with extra steps. What the encoding does and does not protect.',
+    },
   },
   {
     slug: 'jwt-decoder',
@@ -93,6 +123,12 @@ export const tools: Tool[] = [
     category: 'Security',
     icon: 'key',
     keywords: ['jwt decoder', 'json web token', 'decode jwt', 'jwt claims', 'oidc token'],
+    guide: {
+      slug: 'decoding-tokens-safely',
+      title: 'Decoding a JWT Is Not Verifying It',
+      blurb:
+        'What the signature proves, what it does not, and the alg:none trap that has burned real systems.',
+    },
   },
   {
     slug: 'yaml-json',
@@ -104,6 +140,12 @@ export const tools: Tool[] = [
     category: 'Config',
     icon: 'braces',
     keywords: ['yaml to json', 'json to yaml', 'kubernetes manifest', 'yaml converter'],
+    guide: {
+      slug: 'decoding-tokens-safely',
+      title: 'Base64 Is Not Encryption',
+      blurb:
+        'Where the secrets in your manifests actually live, and why a converter should never phone home.',
+    },
   },
   {
     slug: 'cron-expression',

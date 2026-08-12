@@ -73,6 +73,21 @@ const jsonLd = [
     </div>
   </section>
 
+  {
+    tool.guide && (
+      <section class="section guide-section">
+        <div class="wrap">
+          <a class="panel row-hover guide" href={`/blog/${tool.guide.slug}`}>
+            <span class="chip">Background</span>
+            <h2 class="guide__title">{tool.guide.title}</h2>
+            <p class="muted guide__blurb">{tool.guide.blurb}</p>
+            <span class="guide__cta">Read the write-up →</span>
+          </a>
+        </div>
+      </section>
+    )
+  }
+
   <section class="section related">
     <div class="wrap">
       <div class="related__head">
@@ -133,6 +148,41 @@ const jsonLd = [
 
   .tool-body {
     padding-block: clamp(1.75rem, 4vw, 2.75rem);
+  }
+
+  .guide-section {
+    padding-block: 0 clamp(1rem, 3vw, 1.75rem);
+  }
+
+  .guide {
+    display: block;
+    text-decoration: none;
+    color: inherit;
+    padding: clamp(1.1rem, 2.5vw, 1.5rem);
+  }
+
+  .guide__title {
+    font-size: var(--step-1);
+    margin: 0.55rem 0 0.3rem;
+    line-height: 1.3;
+  }
+
+  .guide:hover .guide__title {
+    color: var(--signal);
+  }
+
+  .guide__blurb {
+    font-size: 0.88rem;
+    line-height: 1.6;
+    max-width: 62ch;
+  }
+
+  .guide__cta {
+    display: inline-block;
+    margin-top: 0.7rem;
+    font-family: var(--font-mono);
+    font-size: 0.76rem;
+    color: var(--signal);
   }
 
   .related {
