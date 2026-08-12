@@ -23,6 +23,15 @@ export const site = {
   ],
   locale: 'en_IN',
   ogImage: '/assets/images/meta.jpg',
+  /** Twitter/X handle, for the card attribution. */
+  twitterHandle: '@imsurajkr',
+  /**
+   * Token from Search Console's "HTML tag" verification method — the value of
+   * the content attribute only, not the whole tag. Empty means no tag is
+   * emitted. Verifying by DNS TXT instead covers every subdomain and survives
+   * a redesign, so prefer that where the registrar allows it.
+   */
+  googleSiteVerification: '',
   author: {
     name: 'Suraj Kumar',
     email: 'surajkumar.devp@gmail.com',

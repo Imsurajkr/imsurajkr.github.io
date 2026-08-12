@@ -66,9 +66,24 @@ const personJsonLd = {
     recognizedBy: { '@type': 'Organization', name: c.issuer },
   })),
 };
+
+/**
+ * Names the site as an entity in its own right. Without this, Google infers a
+ * name for the sitelinks block from the title tag, which is the long form.
+ */
+const websiteJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'WebSite',
+  name: site.shortTitle,
+  alternateName: 'surajkr.dev',
+  url: site.url,
+  description: site.description,
+  inLanguage: 'en',
+  author: { '@type': 'Person', name: site.author.name, url: site.url },
+};
 ---
 
-<BaseLayout jsonLd={personJsonLd}>
+<BaseLayout jsonLd={[personJsonLd, websiteJsonLd]}>
   <Hero />
   <ImpactReadout />
 
