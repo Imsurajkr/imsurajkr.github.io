@@ -53,6 +53,24 @@ export const tools: Tool[] = [
     ],
   },
   {
+    slug: 'pcap-analyzer',
+    name: 'PCAP Conversation Analyzer',
+    tagline: 'See which hosts are talking, and about what',
+    description:
+      'Drop in a capture from tcpdump, tshark or Wireshark and get the picture those tools bury in a packet list: a map of who talked to whom, how much moved in each direction, which services were involved and which connections never completed. The file is read in this tab — it is never uploaded.',
+    seo: 'Free online PCAP analyzer — open a .pcap or .pcapng capture and see host conversations, top talkers, protocols, services and failed TCP handshakes on one page. Reads the file in your browser, nothing is uploaded.',
+    category: 'Networking',
+    icon: 'graph',
+    keywords: [
+      'pcap analyzer',
+      'pcapng viewer online',
+      'wireshark alternative browser',
+      'tshark conversations',
+      'network traffic analysis',
+      'top talkers pcap',
+    ],
+  },
+  {
     slug: 'base64',
     name: 'Base64 Encoder / Decoder',
     tagline: 'Encode and decode, UTF-8 safe',

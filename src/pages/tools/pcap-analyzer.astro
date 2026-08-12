@@ -1,0 +1,2917 @@
+---
+import ToolLayout from '../../layouts/ToolLayout.astro';
+---
+
+<ToolLayout slug="pcap-analyzer">
+  <div class="tool-panel">
+    <div class="tool-head-row">
+      <p class="tool-panel__title">Capture file</p>
+      <div class="tool-actions">
+        <button type="button" class="btn btn--sm" id="sample-btn">Load a sample capture</button>
+        <button type="button" class="btn btn--sm" id="clear-btn">Clear</button>
+      </div>
+    </div>
+
+    <label class="drop" id="drop" for="capture">
+      <input
+        id="capture"
+        class="visually-hidden"
+        type="file"
+        accept=".pcap,.pcapng,.cap,.dmp,.gz,application/vnd.tcpdump.pcap"
+      />
+      <svg viewBox="0 0 24 24" aria-hidden="true" class="drop__icon">
+        <path d="M12 16V4m0 0L8 8m4-4 4 4" />
+        <path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" />
+      </svg>
+      <span class="drop__main">Drop a <code>.pcap</code>, <code>.pcapng</code> or <code>.pcap.gz</code> here</span>
+      <span class="drop__sub">
+        or click to choose one — the file is read inside this tab and never leaves your machine
+      </span>
+    </label>
+
+    <p id="status" class="tool-status" role="status"></p>
+  </div>
+
+  <div id="results" hidden>
+    <div class="tool-panel">
+      <div class="tool-head-row">
+        <p class="tool-panel__title">Capture</p>
+        <div class="tool-actions">
+          <button type="button" class="btn btn--sm" id="copy-report">Copy report</button>
+        </div>
+      </div>
+
+      <div class="stats" id="stats"></div>
+
+      <div class="timeline">
+        <svg id="timeline" viewBox="0 0 960 90" preserveAspectRatio="none" role="img" aria-label="Traffic over time"
+        ></svg>
+      </div>
+      <p class="caption dim" id="timeline-caption"></p>
+
+      <dl class="kv kv--tight" id="capture-details"></dl>
+    </div>
+
+    <div class="tool-panel">
+      <div class="tool-head-row">
+        <p class="tool-panel__title">Who is talking to whom</p>
+        <div class="tool-actions">
+          <label class="tool-check">
+            <input type="checkbox" id="hide-noise" checked /> Hide broadcast &amp; multicast
+          </label>
+          <label class="tool-check">
+            <input type="checkbox" id="use-names" checked /> Use names from the capture
+          </label>
+        </div>
+      </div>
+
+      <div class="map-wrap">
+        <svg id="map" viewBox="0 0 960 660" role="img" aria-label="Conversation map"></svg>
+      </div>
+
+      <p class="map-readout" id="map-readout"></p>
+
+      <div class="legend">
+        <span class="legend__item"><i class="node node--in"></i>on your network</span>
+        <span class="legend__item"><i class="node node--out"></i>out on the internet</span>
+        <span class="legend__item"><i class="edge edge--enc"></i>encrypted</span>
+        <span class="legend__item"><i class="edge edge--clear"></i>cleartext</span>
+        <span class="legend__item"><i class="edge edge--infra"></i>infrastructure</span>
+        <span class="legend__item"><i class="edge edge--other"></i>other</span>
+      </div>
+    </div>
+
+    <div class="tool-panel">
+      <p class="tool-panel__title">What the traffic actually is</p>
+      <div class="protobar" id="protobar"></div>
+      <ul class="proto-legend" id="proto-legend"></ul>
+    </div>
+
+    <div class="tool-panel" id="findings-panel">
+      <p class="tool-panel__title">What stands out</p>
+      <ul class="findings" id="findings"></ul>
+    </div>
+
+    <div class="tool-panel">
+      <div class="tool-head-row">
+        <p class="tool-panel__title">Conversations</p>
+        <p class="count dim" id="conv-count"></p>
+      </div>
+      <div class="scroll-x">
+        <table class="tool-table">
+          <thead>
+            <tr>
+              <th>Host A</th>
+              <th>Host B</th>
+              <th>A → B</th>
+              <th>B → A</th>
+              <th>Packets</th>
+              <th>Total</th>
+              <th>Services</th>
+              <th>Duration</th>
+            </tr>
+          </thead>
+          <tbody id="conv-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="tool-panel">
+      <div class="tool-head-row">
+        <p class="tool-panel__title">Hosts</p>
+        <p class="count dim" id="host-count"></p>
+      </div>
+      <div class="scroll-x">
+        <table class="tool-table">
+          <thead>
+            <tr>
+              <th>Host</th>
+              <th>Where</th>
+              <th>Sent</th>
+              <th>Received</th>
+              <th>Packets</th>
+              <th>Peers</th>
+              <th>Serving on</th>
+            </tr>
+          </thead>
+          <tbody id="host-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="tool-panel" id="services-panel">
+      <div class="tool-head-row">
+        <p class="tool-panel__title">Services reached</p>
+        <p class="count dim" id="svc-count"></p>
+      </div>
+      <div class="scroll-x">
+        <table class="tool-table">
+          <thead>
+            <tr>
+              <th>Service</th>
+              <th>Listening on</th>
+              <th>Clients</th>
+              <th>Packets</th>
+              <th>Bytes</th>
+              <th>Encrypted</th>
+            </tr>
+          </thead>
+          <tbody id="svc-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="tool-panel" id="names-panel">
+      <p class="tool-panel__title">Names seen inside the capture</p>
+      <p class="caption dim">
+        Read out of DNS answers, TLS <code>server_name</code> extensions and HTTP <code>Host</code> headers — no
+        lookups were performed.
+      </p>
+      <div class="scroll-x">
+        <table class="tool-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Address</th>
+              <th>Learned from</th>
+            </tr>
+          </thead>
+          <tbody id="names-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="tool-panel">
+      <p class="tool-panel__title">The same answers from tshark</p>
+      <p class="caption dim">
+        Everything above comes from packet headers, so it has a command-line equivalent. These are the ones worth
+        keeping in your notes.
+      </p>
+      <pre class="tool-output" id="tshark"></pre>
+    </div>
+  </div>
+
+  <div class="tool-panel notes-panel">
+    <p class="tool-panel__title">Reading a capture honestly</p>
+    <ul class="notes">
+      <li>
+        <strong>A capture only knows what passed its interface.</strong> Taken on a laptop it sees that laptop; taken
+        on a switch port without a mirror it sees broadcast and little else. If a host you expected is missing, suspect
+        the capture point before you suspect the network.
+      </li>
+      <li>
+        <strong>Encrypted means encrypted.</strong> For TLS, this page can tell you who was contacted and how much
+        moved, because the addresses, ports and the <code>server_name</code> in the handshake are in the clear. It
+        cannot tell you what was said.
+      </li>
+      <li>
+        <strong>Byte counts use the on-the-wire length.</strong> If you captured with a snap length, payloads are cut
+        short but the volume figures are still right — only the payload details, such as TLS SNI, go missing. Capture
+        with <code>-s 0</code> when you care about those.
+      </li>
+      <li>
+        <strong>NAT hides the real endpoints.</strong> Capture outside a NAT and every host behind it collapses into one
+        address. The conversation map is drawn from what the packets say, not from what the topology is.
+      </li>
+    </ul>
+  </div>
+
+  <noscript>
+    <p class="tool-status tool-status--error">
+      This analyzer needs JavaScript — it parses your capture entirely in the browser.
+    </p>
+  </noscript>
+</ToolLayout>
+
+<style>
+  /* ------------------------------------------------------------ drop zone */
+  .drop {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.4rem;
+    text-align: center;
+    padding: clamp(1.6rem, 5vw, 3rem) 1rem;
+    border: 1px dashed var(--line-2);
+    border-radius: var(--r);
+    background: var(--bg);
+    cursor: pointer;
+    transition:
+      border-color 0.18s var(--ease),
+      background 0.18s var(--ease);
+  }
+
+  .drop:hover,
+  .drop:focus-within,
+  .drop.is-over {
+    border-color: var(--signal);
+    background: var(--signal-soft);
+  }
+
+  .drop__icon {
+    width: 1.6rem;
+    height: 1.6rem;
+    fill: none;
+    stroke: var(--signal);
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .drop__main {
+    font-size: 0.95rem;
+    font-weight: 550;
+    color: var(--fg);
+  }
+
+  .drop__main code {
+    font-size: 0.85em;
+  }
+
+  .drop__sub {
+    font-size: 0.8rem;
+    color: var(--fg-3);
+    max-width: 42ch;
+  }
+
+  .drop.is-loaded .drop__main {
+    color: var(--health);
+  }
+
+  /* --------------------------------------------------------- stat tiles */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
+    gap: 0.6rem;
+    margin-bottom: 1.1rem;
+  }
+
+  .stat {
+    border: 1px solid var(--line);
+    border-radius: var(--r);
+    background: var(--bg);
+    padding: 0.65rem 0.75rem;
+  }
+
+  .stat__value {
+    font-family: var(--font-mono);
+    font-size: 1.15rem;
+    color: var(--fg);
+    line-height: 1.2;
+  }
+
+  .stat__label {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--fg-4);
+    margin-top: 0.25rem;
+  }
+
+  /* ----------------------------------------------------------- timeline */
+  .timeline {
+    border: 1px solid var(--line);
+    border-radius: var(--r);
+    background: var(--bg);
+    padding: 0.5rem;
+  }
+
+  .timeline svg {
+    display: block;
+    width: 100%;
+    height: 5.5rem;
+  }
+
+  .caption {
+    font-size: 0.78rem;
+    margin-top: 0.5rem;
+  }
+
+  .dim {
+    color: var(--fg-3);
+  }
+
+  .kv--tight {
+    margin-top: 1rem;
+    border-top: 1px solid var(--line);
+  }
+
+  /* -------------------------------------------------------------- map */
+  .map-wrap {
+    border: 1px solid var(--line);
+    border-radius: var(--r);
+    background: var(--bg);
+    padding: 0.4rem;
+    overflow: hidden;
+  }
+
+  .map-wrap svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    touch-action: manipulation;
+  }
+
+  .map-wrap :global(.link) {
+    fill: none;
+    stroke-linecap: round;
+    transition:
+      opacity 0.15s var(--ease),
+      stroke-width 0.15s var(--ease);
+  }
+
+  .map-wrap :global(.node-dot) {
+    stroke-width: 1.6;
+    cursor: pointer;
+  }
+
+  .map-wrap :global(.node-label) {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    fill: var(--fg-2);
+    cursor: pointer;
+    transition: fill 0.15s var(--ease);
+  }
+
+  .map-wrap :global(.node-group.is-dim) {
+    opacity: 0.22;
+  }
+
+  .map-wrap :global(.node-group.is-active .node-label) {
+    fill: var(--fg);
+    font-weight: 600;
+  }
+
+  .map-wrap :global(.node-group:focus) {
+    outline: none;
+  }
+
+  .map-wrap :global(.node-group:focus-visible .node-dot) {
+    stroke: var(--signal);
+    stroke-width: 3;
+  }
+
+  .map-wrap :global(.map-empty) {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    fill: var(--fg-3);
+  }
+
+  .map-readout {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: var(--fg-2);
+    min-height: 2.4rem;
+    margin-top: 0.7rem;
+    line-height: 1.5;
+  }
+
+  .map-readout b {
+    color: var(--fg);
+    font-weight: 600;
+  }
+
+  /* ------------------------------------------------------------ legend */
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 1rem;
+    margin-top: 0.6rem;
+    font-size: 0.76rem;
+    color: var(--fg-3);
+  }
+
+  .legend__item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .node {
+    width: 0.6rem;
+    height: 0.6rem;
+    border-radius: 50%;
+    flex: none;
+  }
+
+  .node--in {
+    background: var(--health);
+  }
+
+  .node--out {
+    background: var(--bg);
+    border: 1.5px solid var(--signal);
+  }
+
+  .edge {
+    width: 1.1rem;
+    height: 3px;
+    border-radius: 2px;
+    flex: none;
+  }
+
+  .edge--enc {
+    background: var(--signal);
+  }
+
+  .edge--clear {
+    background: var(--guard);
+  }
+
+  .edge--infra {
+    background: var(--health);
+  }
+
+  .edge--other {
+    background: var(--line-3);
+  }
+
+  /* -------------------------------------------------------- protocol bar */
+  .protobar {
+    display: flex;
+    height: 1.6rem;
+    border-radius: var(--r-sm);
+    overflow: hidden;
+    background: var(--bg);
+    border: 1px solid var(--line);
+  }
+
+  .protobar span {
+    display: block;
+    min-width: 2px;
+  }
+
+  .proto-legend {
+    list-style: none;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem 1.1rem;
+    margin: 0.7rem 0 0;
+    padding: 0;
+    font-size: 0.8rem;
+  }
+
+  .proto-legend li {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    color: var(--fg-2);
+  }
+
+  .proto-legend i {
+    width: 0.65rem;
+    height: 0.65rem;
+    border-radius: 2px;
+    flex: none;
+  }
+
+  .proto-legend b {
+    font-family: var(--font-mono);
+    font-weight: 500;
+    color: var(--fg);
+  }
+
+  .proto-legend span {
+    color: var(--fg-4);
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+  }
+
+  /* ---------------------------------------------------------- findings */
+  .findings {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 0.7rem;
+  }
+
+  .findings li {
+    display: grid;
+    grid-template-columns: 0.45rem 1fr;
+    gap: 0.75rem;
+    align-items: stretch;
+    font-size: 0.86rem;
+    color: var(--fg-2);
+    line-height: 1.55;
+  }
+
+  .findings li::before {
+    content: '';
+    border-radius: 2px;
+    background: var(--line-3);
+  }
+
+  .findings li.is-good::before {
+    background: var(--health);
+  }
+
+  .findings li.is-warn::before {
+    background: var(--guard);
+  }
+
+  .findings li.is-bad::before {
+    background: var(--alert);
+  }
+
+  .findings li.is-info::before {
+    background: var(--signal);
+  }
+
+  .findings strong {
+    display: block;
+    color: var(--fg);
+    font-weight: 600;
+    margin-bottom: 0.15rem;
+  }
+
+  /* ------------------------------------------------------------ tables */
+  .scroll-x {
+    overflow-x: auto;
+  }
+
+  .count {
+    font-size: 0.76rem;
+    font-family: var(--font-mono);
+  }
+
+  .tool-table .num {
+    text-align: right;
+  }
+
+  .tool-table .muted-cell {
+    color: var(--fg-4);
+  }
+
+  .tag {
+    display: inline-block;
+    font-size: 0.7rem;
+    padding: 0.05rem 0.35rem;
+    border-radius: 3px;
+    border: 1px solid var(--line-2);
+    color: var(--fg-3);
+  }
+
+  .tag--warn {
+    color: var(--guard);
+    border-color: color-mix(in oklab, var(--guard) 45%, transparent);
+    background: var(--guard-soft);
+  }
+
+  .tag--ok {
+    color: var(--health);
+    border-color: color-mix(in oklab, var(--health) 45%, transparent);
+    background: var(--health-soft);
+  }
+
+  .host-name {
+    color: var(--fg);
+  }
+
+  .host-ip {
+    color: var(--fg-4);
+    font-size: 0.76rem;
+  }
+
+  tr.is-selected {
+    background: var(--signal-soft);
+  }
+
+  /* ------------------------------------------------------------- notes */
+  .notes-panel {
+    margin-top: 1rem;
+  }
+
+  .notes {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 0.8rem;
+    font-size: 0.86rem;
+    color: var(--fg-2);
+    line-height: 1.6;
+  }
+
+  .notes strong {
+    color: var(--fg);
+    font-weight: 600;
+  }
+
+  @media (max-width: 40rem) {
+    .map-wrap svg {
+      min-height: 26rem;
+    }
+  }
+</style>
+
+<script>
+  // ==========================================================================
+  // Capture parsing. Everything runs in the visitor's browser: the file is read
+  // into an ArrayBuffer, walked packet by packet, and folded straight into
+  // aggregates. Individual packets are never retained, so a large capture costs
+  // time rather than memory.
+  //
+  // Containers: classic libpcap (both byte orders, µs and ns) and pcapng.
+  // Link layers: Ethernet, Linux cooked v1/v2, raw IP, BSD loopback.
+  // ==========================================================================
+
+  type Level = 'good' | 'warn' | 'bad' | 'info';
+  type Scope = 'private' | 'public' | 'cgnat' | 'loopback' | 'linklocal' | 'multicast' | 'broadcast';
+  type Class = 'enc' | 'clear' | 'infra' | 'other';
+
+  interface Finding {
+    level: Level;
+    title: string;
+    detail: string;
+  }
+
+  interface Endpoint {
+    ip: string;
+    scope: Scope;
+    /** True for anything on this side of a NAT: private, loopback, link-local, CGNAT. */
+    local: boolean;
+    name?: string;
+    mac?: string;
+    packets: number;
+    bytes: number;
+    sentPackets: number;
+    sentBytes: number;
+    recvPackets: number;
+    recvBytes: number;
+    peers: Set<string>;
+    /** Ports this address served on — it was the server side of those flows. */
+    listens: Set<number>;
+  }
+
+  interface Conversation {
+    a: string;
+    b: string;
+    aPackets: number;
+    aBytes: number;
+    bPackets: number;
+    bBytes: number;
+    packets: number;
+    bytes: number;
+    first: number;
+    last: number;
+    services: Map<string, number>;
+    klass: Class;
+    klassBytes: number;
+    syn: number;
+    rst: number;
+  }
+
+  interface Service {
+    ip: string;
+    port: number;
+    transport: string;
+    name: string;
+    packets: number;
+    bytes: number;
+    clients: Set<string>;
+  }
+
+  interface Tally {
+    name: string;
+    packets: number;
+    bytes: number;
+  }
+
+  interface NameHint {
+    ip: string;
+    name: string;
+    via: 'DNS' | 'TLS SNI' | 'HTTP Host';
+  }
+
+  interface Timeline {
+    step: number;
+    start: number;
+    bytes: number[];
+  }
+
+  interface Analysis {
+    format: 'pcap' | 'pcapng';
+    linkType: number;
+    linkName: string;
+    snaplen: number;
+    fileBytes: number;
+    origin: string[];
+    packets: number;
+    decoded: number;
+    nonIp: number;
+    snapped: number;
+    truncated: boolean;
+    start: number;
+    end: number;
+    duration: number;
+    bytes: number;
+    traffic: { internal: number; outbound: number; inbound: number; external: number };
+    endpoints: Endpoint[];
+    conversations: Conversation[];
+    services: Service[];
+    applications: Tally[];
+    names: NameHint[];
+    vlans: number[];
+    tcp: { syn: number; synAck: number; rst: number; fin: number; unanswered: number; attempted: number };
+    timeline: Timeline;
+    findings: Finding[];
+  }
+
+  class CaptureError extends Error {}
+
+  // -------------------------------------------------------------- constants
+
+  const LINKTYPES: Record<number, string> = {
+    0: 'BSD loopback',
+    1: 'Ethernet',
+    9: 'PPP',
+    12: 'Raw IP',
+    101: 'Raw IP',
+    105: 'IEEE 802.11',
+    113: 'Linux cooked (SLL)',
+    127: 'Radiotap',
+    228: 'Raw IPv4',
+    229: 'Raw IPv6',
+    276: 'Linux cooked v2 (SLL2)',
+  };
+
+  const SUPPORTED_LINKTYPES = new Set([0, 1, 12, 101, 113, 228, 229, 276]);
+
+  const IP_PROTOCOLS: Record<number, string> = {
+    1: 'ICMP',
+    2: 'IGMP',
+    6: 'TCP',
+    17: 'UDP',
+    41: 'IPv6',
+    47: 'GRE',
+    50: 'ESP',
+    51: 'AH',
+    58: 'ICMPv6',
+    89: 'OSPF',
+    103: 'PIM',
+    112: 'VRRP',
+    132: 'SCTP',
+  };
+
+  /** Port → service name. Deliberately short: the ports an operator recognises. */
+  const SERVICES: Record<number, string> = {
+    20: 'FTP-data',
+    21: 'FTP',
+    22: 'SSH',
+    23: 'Telnet',
+    25: 'SMTP',
+    53: 'DNS',
+    67: 'DHCP',
+    68: 'DHCP',
+    69: 'TFTP',
+    80: 'HTTP',
+    110: 'POP3',
+    111: 'RPC',
+    123: 'NTP',
+    135: 'MS-RPC',
+    137: 'NetBIOS',
+    138: 'NetBIOS',
+    139: 'NetBIOS',
+    143: 'IMAP',
+    161: 'SNMP',
+    162: 'SNMP-trap',
+    179: 'BGP',
+    389: 'LDAP',
+    443: 'HTTPS',
+    445: 'SMB',
+    465: 'SMTPS',
+    500: 'IKE',
+    514: 'Syslog',
+    587: 'SMTP',
+    636: 'LDAPS',
+    993: 'IMAPS',
+    995: 'POP3S',
+    1433: 'MSSQL',
+    1521: 'Oracle',
+    1900: 'SSDP',
+    2049: 'NFS',
+    2181: 'ZooKeeper',
+    2375: 'Docker API',
+    2376: 'Docker API (TLS)',
+    3128: 'HTTP proxy',
+    3306: 'MySQL',
+    3389: 'RDP',
+    4789: 'VXLAN',
+    5353: 'mDNS',
+    5432: 'PostgreSQL',
+    5601: 'Kibana',
+    5672: 'AMQP',
+    6081: 'Geneve',
+    6379: 'Redis',
+    6443: 'Kubernetes API',
+    8080: 'HTTP-alt',
+    8443: 'HTTPS-alt',
+    8472: 'VXLAN',
+    9090: 'Prometheus',
+    9092: 'Kafka',
+    9200: 'Elasticsearch',
+    11211: 'Memcached',
+    27017: 'MongoDB',
+    51820: 'WireGuard',
+  };
+
+  /** Services that carry data — and often credentials — in the clear. */
+  const CLEARTEXT: Record<number, string> = {
+    21: 'FTP',
+    23: 'Telnet',
+    25: 'SMTP',
+    69: 'TFTP',
+    80: 'HTTP',
+    110: 'POP3',
+    143: 'IMAP',
+    161: 'SNMP',
+    389: 'LDAP',
+    512: 'rexec',
+    513: 'rlogin',
+    514: 'Syslog',
+    1433: 'MSSQL',
+    3306: 'MySQL',
+    5432: 'PostgreSQL',
+    6379: 'Redis',
+    8080: 'HTTP',
+    9200: 'Elasticsearch',
+    11211: 'Memcached',
+    27017: 'MongoDB',
+  };
+
+  /** Ports whose traffic is encrypted end to end. */
+  const ENCRYPTED = new Set([22, 443, 465, 636, 993, 995, 2376, 5061, 6443, 8443, 51820]);
+
+  /** Ports that keep the network itself running rather than carrying user data. */
+  const INFRA = new Set([53, 67, 68, 123, 137, 138, 546, 547, 1900, 5353, 3784, 179, 520]);
+
+  const TCP_FIN = 0x01;
+  const TCP_SYN = 0x02;
+  const TCP_RST = 0x04;
+  const TCP_ACK = 0x10;
+
+  /** Hard ceiling so a huge capture degrades into a sample instead of a hang. */
+  const PACKET_CAP = 400_000;
+  const MAX_FILE_BYTES = 320 * 1024 * 1024;
+
+  // ---------------------------------------------------------------- helpers
+
+  const fmtIPv4 = (v: DataView, off: number) =>
+    `${v.getUint8(off)}.${v.getUint8(off + 1)}.${v.getUint8(off + 2)}.${v.getUint8(off + 3)}`;
+
+  /** RFC 5952 shortest form, so addresses stay readable in tables. */
+  function fmtIPv6(v: DataView, off: number): string {
+    const groups: number[] = [];
+    for (let i = 0; i < 8; i++) groups.push(v.getUint16(off + i * 2, false));
+
+    let bestStart = -1;
+    let bestLen = 0;
+    let runStart = -1;
+    for (let i = 0; i <= 8; i++) {
+      if (i < 8 && groups[i] === 0) {
+        if (runStart < 0) runStart = i;
+      } else if (runStart >= 0) {
+        if (i - runStart > bestLen) {
+          bestLen = i - runStart;
+          bestStart = runStart;
+        }
+        runStart = -1;
+      }
+    }
+
+    const hex = groups.map((g) => g.toString(16));
+    if (bestLen < 2) return hex.join(':');
+    return `${hex.slice(0, bestStart).join(':')}::${hex.slice(bestStart + bestLen).join(':')}`;
+  }
+
+  function fmtMac(v: DataView, off: number): string {
+    const parts: string[] = [];
+    for (let i = 0; i < 6; i++) parts.push(v.getUint8(off + i).toString(16).padStart(2, '0'));
+    return parts.join(':');
+  }
+
+  function scopeOf(ip: string): Scope {
+    if (ip.includes(':')) {
+      const low = ip.toLowerCase();
+      if (low === '::1') return 'loopback';
+      if (low.startsWith('ff')) return 'multicast';
+      if (/^fe[89ab]/.test(low)) return 'linklocal';
+      if (/^f[cd]/.test(low)) return 'private';
+      return 'public';
+    }
+
+    const [a, b] = ip.split('.').map(Number);
+    if (a === 10) return 'private';
+    if (a === 172 && b >= 16 && b <= 31) return 'private';
+    if (a === 192 && b === 168) return 'private';
+    if (a === 127) return 'loopback';
+    if (a === 169 && b === 254) return 'linklocal';
+    if (a === 100 && b >= 64 && b <= 127) return 'cgnat';
+    if (ip === '255.255.255.255') return 'broadcast';
+    if (a >= 224 && a <= 239) return 'multicast';
+    return 'public';
+  }
+
+  const SCOPE_LABEL: Record<Scope, string> = {
+    private: 'private',
+    public: 'internet',
+    cgnat: 'CGNAT',
+    loopback: 'loopback',
+    linklocal: 'link-local',
+    multicast: 'multicast',
+    broadcast: 'broadcast',
+  };
+
+  const isLocalScope = (scope: Scope) =>
+    scope === 'private' || scope === 'loopback' || scope === 'linklocal' || scope === 'cgnat';
+
+  const isNoise = (scope: Scope) => scope === 'multicast' || scope === 'broadcast';
+
+  const serviceName = (port: number, transport: string) => SERVICES[port] ?? `${transport}/${port}`;
+
+  function classOf(port: number): Class {
+    if (INFRA.has(port)) return 'infra';
+    if (ENCRYPTED.has(port)) return 'enc';
+    if (CLEARTEXT[port] !== undefined) return 'clear';
+    return 'other';
+  }
+
+  function formatBytes(n: number): string {
+    if (n < 1024) return `${Math.round(n)} B`;
+    const units = ['KB', 'MB', 'GB', 'TB'];
+    let value = n / 1024;
+    let unit = 0;
+    while (value >= 1024 && unit < units.length - 1) {
+      value /= 1024;
+      unit++;
+    }
+    return `${value >= 100 ? value.toFixed(0) : value.toFixed(1)} ${units[unit]}`;
+  }
+
+  function formatDuration(seconds: number): string {
+    if (!seconds) return '—';
+    if (seconds < 1) return `${(seconds * 1000).toFixed(0)} ms`;
+    if (seconds < 60) return `${seconds.toFixed(seconds < 10 ? 2 : 1)} s`;
+    const m = Math.floor(seconds / 60);
+    const s = Math.round(seconds % 60);
+    if (m < 60) return `${m}m ${s}s`;
+    return `${Math.floor(m / 60)}h ${m % 60}m`;
+  }
+
+  const plural = (n: number, one: string, many = `${one}s`) => `${n.toLocaleString()} ${n === 1 ? one : many}`;
+
+  // ------------------------------------------------------ adaptive timeline
+
+  /**
+   * Packet-rate histogram built in one pass. The capture's duration is unknown
+   * while streaming, so buckets start fine and halve in resolution — merging
+   * pairs — whenever a packet lands past the end.
+   */
+  class Histogram {
+    private static readonly SLOTS = 240;
+    private bytes = new Float64Array(Histogram.SLOTS);
+    private step = 0.002;
+    private start = 0;
+    private started = false;
+    private used = 0;
+
+    add(ts: number, len: number) {
+      if (!this.started) {
+        this.start = ts;
+        this.started = true;
+      }
+
+      let slot = Math.floor((ts - this.start) / this.step);
+      if (slot < 0) slot = 0; // out-of-order timestamps land in the first bucket
+      while (slot >= Histogram.SLOTS) {
+        this.halve();
+        slot = Math.floor((ts - this.start) / this.step);
+      }
+
+      this.bytes[slot] += len;
+      if (slot >= this.used) this.used = slot + 1;
+    }
+
+    private halve() {
+      const half = Histogram.SLOTS / 2;
+      for (let i = 0; i < half; i++) this.bytes[i] = this.bytes[i * 2] + this.bytes[i * 2 + 1];
+      this.bytes.fill(0, half);
+      this.used = Math.ceil(this.used / 2);
+      this.step *= 2;
+    }
+
+    result(): Timeline {
+      return {
+        step: this.step,
+        start: this.start,
+        bytes: Array.from(this.bytes.slice(0, Math.max(this.used, 1))),
+      };
+    }
+  }
+
+  // ----------------------------------------------------------- packet decode
+
+  interface Decoded {
+    src?: string;
+    dst?: string;
+    srcMac?: string;
+    dstMac?: string;
+    vlan?: number;
+    transport?: string;
+    sport?: number;
+    dport?: number;
+    flags?: number;
+    payloadOff?: number;
+    payloadLen?: number;
+    v6?: boolean;
+    arp?: boolean;
+  }
+
+  /** Strip the link layer and return the offset of the network header. */
+  function stripLink(v: DataView, off: number, end: number, linkType: number, out: Decoded): number {
+    switch (linkType) {
+      case 1: {
+        if (off + 14 > end) return -1;
+        out.dstMac = fmtMac(v, off);
+        out.srcMac = fmtMac(v, off + 6);
+        let type = v.getUint16(off + 12, false);
+        let cursor = off + 14;
+
+        // Unwrap up to two levels of VLAN tagging (802.1Q / QinQ).
+        for (let i = 0; i < 2; i++) {
+          if (type !== 0x8100 && type !== 0x88a8 && type !== 0x9100) break;
+          if (cursor + 4 > end) return -1;
+          out.vlan = v.getUint16(cursor, false) & 0x0fff;
+          type = v.getUint16(cursor + 2, false);
+          cursor += 4;
+        }
+
+        if (type === 0x0800) return cursor;
+        if (type === 0x86dd) {
+          out.v6 = true;
+          return cursor;
+        }
+        if (type === 0x0806) decodeArp(v, cursor, end, out);
+        return -1;
+      }
+
+      case 113: {
+        // Linux cooked v1: 2 type, 2 ARPHRD, 2 addr len, 8 addr, 2 protocol.
+        if (off + 16 > end) return -1;
+        const type = v.getUint16(off + 14, false);
+        if (type === 0x0800) return off + 16;
+        if (type === 0x86dd) {
+          out.v6 = true;
+          return off + 16;
+        }
+        return -1;
+      }
+
+      case 276: {
+        // Linux cooked v2: 2 protocol, 2 reserved, 4 ifindex, 2 ARPHRD, 1 type, 1 len, 8 addr.
+        if (off + 20 > end) return -1;
+        const type = v.getUint16(off, false);
+        if (type === 0x0800) return off + 20;
+        if (type === 0x86dd) {
+          out.v6 = true;
+          return off + 20;
+        }
+        return -1;
+      }
+
+      case 0: {
+        // BSD loopback: a 4-byte host-order address family.
+        if (off + 4 > end) return -1;
+        const le = v.getUint32(off, true);
+        const family = le === 2 || le === 24 || le === 28 || le === 30 ? le : v.getUint32(off, false);
+        if (family === 2) return off + 4;
+        if (family === 24 || family === 28 || family === 30) {
+          out.v6 = true;
+          return off + 4;
+        }
+        return -1;
+      }
+
+      case 12:
+      case 101:
+      case 228:
+      case 229: {
+        if (off >= end) return -1;
+        const nibble = v.getUint8(off) >> 4;
+        if (nibble === 6 || linkType === 229) out.v6 = true;
+        else if (nibble !== 4) return -1;
+        return off;
+      }
+
+      default:
+        return -1;
+    }
+  }
+
+  function decodeArp(v: DataView, off: number, end: number, out: Decoded) {
+    if (off + 28 > end) return;
+    if (v.getUint16(off + 2, false) !== 0x0800) return; // IPv4 over Ethernet only
+    out.arp = true;
+    out.transport = 'ARP';
+    out.src = fmtIPv4(v, off + 14);
+    out.dst = fmtIPv4(v, off + 24);
+  }
+
+  function decodeTransport(v: DataView, off: number, end: number, proto: number, out: Decoded) {
+    out.transport = IP_PROTOCOLS[proto] ?? `IP/${proto}`;
+
+    if (proto === 6 && off + 20 <= end) {
+      out.sport = v.getUint16(off, false);
+      out.dport = v.getUint16(off + 2, false);
+      out.flags = v.getUint8(off + 13);
+      const payload = off + Math.max((v.getUint8(off + 12) >> 4) * 4, 20);
+      if (payload < end) {
+        out.payloadOff = payload;
+        out.payloadLen = end - payload;
+      }
+    } else if (proto === 17 && off + 8 <= end) {
+      out.sport = v.getUint16(off, false);
+      out.dport = v.getUint16(off + 2, false);
+      if (off + 8 < end) {
+        out.payloadOff = off + 8;
+        out.payloadLen = end - off - 8;
+      }
+    }
+  }
+
+  /** Decode one frame. `end` is the end of captured bytes, which may be short. */
+  function decodePacket(v: DataView, start: number, end: number, linkType: number): Decoded | null {
+    const out: Decoded = {};
+    const netOff = stripLink(v, start, end, linkType, out);
+    if (netOff < 0) return out.arp && out.src ? out : null;
+
+    if (out.v6) {
+      if (netOff + 40 > end) return null;
+      out.src = fmtIPv6(v, netOff + 8);
+      out.dst = fmtIPv6(v, netOff + 24);
+
+      let next = v.getUint8(netOff + 6);
+      let cursor = netOff + 40;
+      const payloadEnd = Math.min(end, cursor + v.getUint16(netOff + 4, false));
+
+      // Walk the extension header chain down to the real transport header.
+      for (let i = 0; i < 8; i++) {
+        if (next === 0 || next === 43 || next === 60 || next === 51) {
+          if (cursor + 2 > end) return out;
+          const len = next === 51 ? (v.getUint8(cursor + 1) + 2) * 4 : (v.getUint8(cursor + 1) + 1) * 8;
+          next = v.getUint8(cursor);
+          cursor += len;
+        } else if (next === 44) {
+          if (cursor + 8 > end) return out;
+          next = v.getUint8(cursor);
+          cursor += 8;
+        } else break;
+      }
+
+      if (cursor < end) decodeTransport(v, cursor, Math.max(payloadEnd, cursor), next, out);
+      else out.transport = IP_PROTOCOLS[next] ?? `IP/${next}`;
+      return out;
+    }
+
+    if (netOff + 20 > end) return null;
+    const byte0 = v.getUint8(netOff);
+    if (byte0 >> 4 !== 4) return null;
+
+    const ihl = (byte0 & 0x0f) * 4;
+    if (ihl < 20) return null;
+
+    const totalLength = v.getUint16(netOff + 2, false);
+    const fragment = v.getUint16(netOff + 6, false);
+    const proto = v.getUint8(netOff + 9);
+    out.src = fmtIPv4(v, netOff + 12);
+    out.dst = fmtIPv4(v, netOff + 16);
+
+    const ipEnd = Math.min(end, netOff + (totalLength > 0 ? totalLength : end - netOff));
+    const l4 = netOff + ihl;
+
+    // Only the first fragment of a datagram carries a transport header.
+    if ((fragment & 0x1fff) === 0 && l4 < ipEnd) decodeTransport(v, l4, ipEnd, proto, out);
+    else out.transport = IP_PROTOCOLS[proto] ?? `IP/${proto}`;
+
+    return out;
+  }
+
+  // -------------------------------------------------------- payload sniffing
+
+  interface DnsInfo {
+    queries: string[];
+    answers: { name: string; ip: string }[];
+  }
+
+  function readDnsName(msg: DataView, off: number): { name: string; next: number } | null {
+    const labels: string[] = [];
+    let cursor = off;
+    let next = -1;
+    let jumps = 0;
+
+    while (cursor < msg.byteLength) {
+      const len = msg.getUint8(cursor);
+      if (len === 0) {
+        cursor++;
+        break;
+      }
+      if ((len & 0xc0) === 0xc0) {
+        if (cursor + 2 > msg.byteLength || ++jumps > 8) return null;
+        if (next < 0) next = cursor + 2;
+        cursor = ((len & 0x3f) << 8) | msg.getUint8(cursor + 1);
+        continue;
+      }
+      if (len > 63 || cursor + 1 + len > msg.byteLength || labels.length > 32) return null;
+      let label = '';
+      for (let i = 0; i < len; i++) label += String.fromCharCode(msg.getUint8(cursor + 1 + i));
+      labels.push(label);
+      cursor += 1 + len;
+    }
+
+    return { name: labels.join('.'), next: next >= 0 ? next : cursor };
+  }
+
+  /** Minimal DNS reader: enough for question names and A/AAAA answers. */
+  function parseDns(v: DataView, base: number, end: number): DnsInfo | null {
+    if (base + 12 > end) return null;
+
+    // Compression pointers are offsets from the start of the DNS message, so
+    // read everything through a view rebased on it.
+    const msg = new DataView(v.buffer, v.byteOffset + base, end - base);
+    const qdCount = msg.getUint16(4, false);
+    const anCount = msg.getUint16(6, false);
+    if (qdCount > 16 || anCount > 64) return null;
+
+    const info: DnsInfo = { queries: [], answers: [] };
+    let off = 12;
+
+    for (let i = 0; i < qdCount; i++) {
+      const read = readDnsName(msg, off);
+      if (!read || read.next + 4 > msg.byteLength) return info;
+      if (read.name) info.queries.push(read.name);
+      off = read.next + 4;
+    }
+
+    for (let i = 0; i < anCount; i++) {
+      const read = readDnsName(msg, off);
+      if (!read || read.next + 10 > msg.byteLength) return info;
+      const type = msg.getUint16(read.next, false);
+      const rdLength = msg.getUint16(read.next + 8, false);
+      const rdOff = read.next + 10;
+      if (rdOff + rdLength > msg.byteLength) return info;
+
+      if (type === 1 && rdLength === 4) info.answers.push({ name: read.name, ip: fmtIPv4(msg, rdOff) });
+      else if (type === 28 && rdLength === 16) info.answers.push({ name: read.name, ip: fmtIPv6(msg, rdOff) });
+
+      off = rdOff + rdLength;
+    }
+
+    return info;
+  }
+
+  /** Pull the SNI hostname out of a TLS ClientHello, if this packet holds one. */
+  function parseSni(v: DataView, off: number, end: number): string | null {
+    if (off + 45 > end) return null;
+    if (v.getUint8(off) !== 0x16 || v.getUint8(off + 1) !== 0x03) return null; // handshake, TLS 1.x
+    if (v.getUint8(off + 5) !== 0x01) return null; // ClientHello
+
+    // record (5) + handshake header (4) + version (2) + random (32)
+    let cursor = off + 43;
+    cursor += 1 + v.getUint8(cursor);
+    if (cursor + 2 > end) return null;
+
+    cursor += 2 + v.getUint16(cursor, false);
+    if (cursor + 1 > end) return null;
+
+    cursor += 1 + v.getUint8(cursor);
+    if (cursor + 2 > end) return null;
+
+    const extensionsEnd = Math.min(end, cursor + 2 + v.getUint16(cursor, false));
+    cursor += 2;
+
+    while (cursor + 4 <= extensionsEnd) {
+      const type = v.getUint16(cursor, false);
+      const len = v.getUint16(cursor + 2, false);
+      const body = cursor + 4;
+      if (body + len > extensionsEnd) return null;
+
+      if (type === 0 && len >= 5) {
+        const nameLen = v.getUint16(body + 3, false);
+        if (nameLen > 255 || body + 5 + nameLen > end) return null;
+        let host = '';
+        for (let i = 0; i < nameLen; i++) host += String.fromCharCode(v.getUint8(body + 5 + i));
+        return /^[A-Za-z0-9.\-_]+$/.test(host) ? host : null;
+      }
+
+      cursor = body + len;
+    }
+
+    return null;
+  }
+
+  const HTTP_METHODS = ['GET ', 'POST', 'PUT ', 'HEAD', 'DELE', 'OPTI', 'PATC', 'CONN'];
+
+  /** Read the Host header of a plaintext HTTP request. */
+  function parseHttpHost(v: DataView, off: number, end: number): string | null {
+    const limit = Math.min(end, off + 900);
+    if (limit - off < 20) return null;
+
+    let text = '';
+    for (let i = off; i < limit; i++) {
+      const byte = v.getUint8(i);
+      if (byte === 0) return null;
+      text += String.fromCharCode(byte);
+    }
+
+    if (!HTTP_METHODS.some((m) => text.startsWith(m))) return null;
+    const match = /\r\nHost:\s*([A-Za-z0-9.\-_:]+)/i.exec(text);
+    return match ? match[1].replace(/:\d+$/, '') : null;
+  }
+
+  // ---------------------------------------------------------- container walk
+
+  interface Frame {
+    ts: number;
+    offset: number;
+    capLen: number;
+    wireLen: number;
+    linkType: number;
+  }
+
+  /** Walk a classic libpcap file, yielding one frame at a time. */
+  function* readPcap(v: DataView, meta: { snaplen: number }): Generator<Frame, void, undefined> {
+    const magic = v.getUint32(0, false);
+    const little = magic === 0xd4c3b2a1 || magic === 0x4d3cb2a1;
+    const nanos = magic === 0xa1b23c4d || magic === 0x4d3cb2a1;
+
+    meta.snaplen = v.getUint32(16, little);
+    const linkType = v.getUint32(20, little);
+    const divisor = nanos ? 1e9 : 1e6;
+    let off = 24;
+
+    while (off + 16 <= v.byteLength) {
+      const ts = v.getUint32(off, little) + v.getUint32(off + 4, little) / divisor;
+      const capLen = v.getUint32(off + 8, little);
+      const wireLen = v.getUint32(off + 12, little);
+      off += 16;
+
+      // A short final record means the capture was cut mid-write.
+      if (capLen > v.byteLength - off) return;
+
+      yield { ts, offset: off, capLen, wireLen: wireLen || capLen, linkType };
+      off += capLen;
+    }
+  }
+
+  /** Walk a pcapng file. Only the blocks that carry packets matter here. */
+  function* readPcapng(
+    v: DataView,
+    meta: { origin: string[]; snaplen: number },
+  ): Generator<Frame, void, undefined> {
+    const interfaces: { linkType: number; resolution: number }[] = [];
+    let little = true;
+    let off = 0;
+
+    while (off + 12 <= v.byteLength) {
+      const type = v.getUint32(off, little);
+      let length = v.getUint32(off + 4, little);
+
+      if (type === 0x0a0d0d0a) {
+        // Section header — its byte-order magic governs everything after it.
+        little = v.getUint32(off + 8, true) === 0x1a2b3c4d;
+        length = v.getUint32(off + 4, little);
+        interfaces.length = 0;
+        readOptions(v, off + 24, off + length - 4, little, (code, value, len) => {
+          if (code === 4 || code === 5) meta.origin.push(readString(v, value, len));
+        });
+      } else if (type === 0x00000001) {
+        const linkType = v.getUint16(off + 8, little);
+        const snaplen = v.getUint32(off + 12, little);
+        if (snaplen && !meta.snaplen) meta.snaplen = snaplen;
+
+        let resolution = 1e6;
+        readOptions(v, off + 16, off + length - 4, little, (code, value, len) => {
+          if (code === 9 && len >= 1) {
+            const raw = v.getUint8(value);
+            resolution = raw & 0x80 ? 2 ** (raw & 0x7f) : 10 ** raw;
+          }
+        });
+        interfaces.push({ linkType, resolution });
+      } else if (type === 0x00000006) {
+        const iface = interfaces[v.getUint32(off + 8, little)] ?? interfaces[0];
+        const ts =
+          (v.getUint32(off + 12, little) * 4294967296 + v.getUint32(off + 16, little)) /
+          (iface?.resolution ?? 1e6);
+        const capLen = v.getUint32(off + 20, little);
+        const wireLen = v.getUint32(off + 24, little);
+
+        yield { ts, offset: off + 28, capLen, wireLen: wireLen || capLen, linkType: iface?.linkType ?? 1 };
+      } else if (type === 0x00000003) {
+        const wireLen = v.getUint32(off + 8, little);
+        yield {
+          ts: 0,
+          offset: off + 12,
+          capLen: Math.min(wireLen, length - 16),
+          wireLen,
+          linkType: interfaces[0]?.linkType ?? 1,
+        };
+      }
+
+      if (length < 12 || off + length > v.byteLength) return;
+      off += length;
+    }
+  }
+
+  function readOptions(
+    v: DataView,
+    start: number,
+    end: number,
+    little: boolean,
+    visit: (code: number, valueOffset: number, length: number) => void,
+  ) {
+    let off = start;
+    while (off + 4 <= end) {
+      const code = v.getUint16(off, little);
+      const len = v.getUint16(off + 2, little);
+      if (code === 0 || off + 4 + len > end) return;
+      visit(code, off + 4, len);
+      off += 4 + len + ((4 - (len % 4)) % 4);
+    }
+  }
+
+  function readString(v: DataView, off: number, len: number): string {
+    let out = '';
+    for (let i = 0; i < Math.min(len, 120); i++) out += String.fromCharCode(v.getUint8(off + i));
+    return out.trim();
+  }
+
+  function detectFormat(buffer: ArrayBuffer): 'pcap' | 'pcapng' | null {
+    if (buffer.byteLength < 24) return null;
+    const magic = new DataView(buffer).getUint32(0, false);
+    if (magic === 0x0a0d0d0a) return 'pcapng';
+    if (magic === 0xa1b2c3d4 || magic === 0xd4c3b2a1 || magic === 0xa1b23c4d || magic === 0x4d3cb2a1)
+      return 'pcap';
+    return null;
+  }
+
+  /** Transparently un-gzip a `.pcap.gz`, which is how captures usually travel. */
+  async function readCaptureFile(file: File): Promise<ArrayBuffer> {
+    const buffer = await file.arrayBuffer();
+    if (buffer.byteLength < 2) throw new CaptureError('That file is empty.');
+
+    const head = new Uint8Array(buffer, 0, 2);
+    if (head[0] !== 0x1f || head[1] !== 0x8b) return buffer;
+
+    if (typeof DecompressionStream === 'undefined') {
+      throw new CaptureError('This browser cannot un-gzip the file — decompress it first.');
+    }
+    const stream = new Blob([buffer]).stream().pipeThrough(new DecompressionStream('gzip'));
+    return new Response(stream).arrayBuffer();
+  }
+
+  // --------------------------------------------------------------- analysis
+
+  function analyze(buffer: ArrayBuffer): Analysis {
+    const format = detectFormat(buffer);
+    if (!format) {
+      throw new CaptureError(
+        'That is not a pcap or pcapng file — the magic number at the start of it matches neither format.',
+      );
+    }
+
+    const v = new DataView(buffer);
+    const meta = { origin: [] as string[], snaplen: 0 };
+    const frames = format === 'pcap' ? readPcap(v, meta) : readPcapng(v, meta);
+
+    const endpoints = new Map<string, Endpoint>();
+    const conversations = new Map<string, Conversation>();
+    const services = new Map<string, Service>();
+    const applications = new Map<string, Tally>();
+    const names = new Map<string, NameHint>();
+    const vlans = new Set<number>();
+    const histogram = new Histogram();
+
+    // TCP handshake bookkeeping, keyed by the four-tuple of the SYN.
+    const synSeen = new Set<string>();
+    const synAcked = new Set<string>();
+
+    let packets = 0;
+    let decoded = 0;
+    let nonIp = 0;
+    let snapped = 0;
+    let truncated = false;
+    let totalBytes = 0;
+    let firstTs = 0;
+    let lastTs = 0;
+    let linkType = -1;
+    let internal = 0;
+    let outbound = 0;
+    let inbound = 0;
+    let external = 0;
+    const tcp = { syn: 0, synAck: 0, rst: 0, fin: 0, unanswered: 0, attempted: 0 };
+
+    const touch = (ip: string): Endpoint => {
+      let e = endpoints.get(ip);
+      if (!e) {
+        const scope = scopeOf(ip);
+        e = {
+          ip,
+          scope,
+          local: isLocalScope(scope),
+          packets: 0,
+          bytes: 0,
+          sentPackets: 0,
+          sentBytes: 0,
+          recvPackets: 0,
+          recvBytes: 0,
+          peers: new Set(),
+          listens: new Set(),
+        };
+        endpoints.set(ip, e);
+      }
+      return e;
+    };
+
+    for (const frame of frames) {
+      if (packets >= PACKET_CAP) {
+        truncated = true;
+        break;
+      }
+      packets++;
+
+      if (linkType < 0) linkType = frame.linkType;
+      if (frame.capLen < frame.wireLen) snapped++;
+
+      const wire = frame.wireLen;
+      totalBytes += wire;
+
+      const ts = frame.ts;
+      if (ts > 0) {
+        if (!firstTs || ts < firstTs) firstTs = ts;
+        if (ts > lastTs) lastTs = ts;
+        histogram.add(ts, wire);
+      }
+
+      let packet: Decoded | null = null;
+      try {
+        packet = decodePacket(
+          v,
+          frame.offset,
+          Math.min(frame.offset + frame.capLen, v.byteLength),
+          frame.linkType,
+        );
+      } catch {
+        packet = null;
+      }
+
+      if (!packet?.src || !packet.dst) {
+        nonIp++;
+        continue;
+      }
+
+      decoded++;
+      if (packet.vlan !== undefined) vlans.add(packet.vlan);
+
+      const { src, dst } = packet;
+      const transport = packet.transport ?? 'Other';
+
+      const a = touch(src);
+      const b = touch(dst);
+      if (packet.srcMac && !a.mac) a.mac = packet.srcMac;
+      if (packet.dstMac && !b.mac && b.local) b.mac = packet.dstMac;
+
+      a.packets++;
+      a.bytes += wire;
+      a.sentPackets++;
+      a.sentBytes += wire;
+      b.packets++;
+      b.bytes += wire;
+      b.recvPackets++;
+      b.recvBytes += wire;
+      if (a.peers.size < 5000) a.peers.add(dst);
+      if (b.peers.size < 5000) b.peers.add(src);
+
+      if (a.local && b.local) internal += wire;
+      else if (a.local) outbound += wire;
+      else if (b.local) inbound += wire;
+      else external += wire;
+
+      // ---- conversation
+      const key = src < dst ? `${src} ${dst}` : `${dst} ${src}`;
+      let conv = conversations.get(key);
+      if (!conv) {
+        const [x, y] = src < dst ? [src, dst] : [dst, src];
+        conv = {
+          a: x,
+          b: y,
+          aPackets: 0,
+          aBytes: 0,
+          bPackets: 0,
+          bBytes: 0,
+          packets: 0,
+          bytes: 0,
+          first: ts,
+          last: ts,
+          services: new Map(),
+          klass: 'other',
+          klassBytes: 0,
+          syn: 0,
+          rst: 0,
+        };
+        conversations.set(key, conv);
+      }
+
+      if (src === conv.a) {
+        conv.aPackets++;
+        conv.aBytes += wire;
+      } else {
+        conv.bPackets++;
+        conv.bBytes += wire;
+      }
+      conv.packets++;
+      conv.bytes += wire;
+      if (ts > 0) {
+        if (!conv.first || ts < conv.first) conv.first = ts;
+        if (ts > conv.last) conv.last = ts;
+      }
+
+      // ---- service and application tallies
+      let appName = transport;
+      let klass: Class = transport === 'ICMP' || transport === 'ICMPv6' || transport === 'ARP' ? 'infra' : 'other';
+
+      if ((transport === 'TCP' || transport === 'UDP') && packet.sport !== undefined && packet.dport !== undefined) {
+        const sport = packet.sport;
+        const dport = packet.dport;
+
+        // The server side is whichever port we recognise; ties go to the lower one.
+        const srcKnown = SERVICES[sport] !== undefined;
+        const dstKnown = SERVICES[dport] !== undefined;
+        const serverIsDst = dstKnown || (!srcKnown && dport <= sport);
+        const serverIp = serverIsDst ? dst : src;
+        const serverPort = serverIsDst ? dport : sport;
+        const clientIp = serverIsDst ? src : dst;
+
+        appName = serviceName(serverPort, transport);
+        klass = classOf(serverPort);
+        touch(serverIp).listens.add(serverPort);
+
+        const svcKey = `${serverIp}|${serverPort}|${transport}`;
+        let svc = services.get(svcKey);
+        if (!svc) {
+          svc = {
+            ip: serverIp,
+            port: serverPort,
+            transport,
+            name: appName,
+            packets: 0,
+            bytes: 0,
+            clients: new Set(),
+          };
+          services.set(svcKey, svc);
+        }
+        svc.packets++;
+        svc.bytes += wire;
+        if (svc.clients.size < 5000) svc.clients.add(clientIp);
+
+        // ---- TCP handshake state
+        if (transport === 'TCP' && packet.flags !== undefined) {
+          const flags = packet.flags;
+          if (flags & TCP_SYN && !(flags & TCP_ACK)) {
+            tcp.syn++;
+            conv.syn++;
+            if (synSeen.size < 200_000) synSeen.add(`${src}:${sport}>${dst}:${dport}`);
+          } else if (flags & TCP_SYN && flags & TCP_ACK) {
+            tcp.synAck++;
+            synAcked.add(`${dst}:${dport}>${src}:${sport}`);
+          }
+          if (flags & TCP_RST) {
+            tcp.rst++;
+            conv.rst++;
+          }
+          if (flags & TCP_FIN) tcp.fin++;
+        }
+
+        // ---- payload sniffing, purely to put names on addresses
+        if (packet.payloadOff !== undefined && packet.payloadLen) {
+          const pOff = packet.payloadOff;
+          const pEnd = pOff + packet.payloadLen;
+          try {
+            if (transport === 'UDP' && (serverPort === 53 || serverPort === 5353)) {
+              const dns = parseDns(v, pOff, pEnd);
+              for (const answer of dns?.answers ?? []) {
+                if (!names.has(answer.ip)) names.set(answer.ip, { ip: answer.ip, name: answer.name, via: 'DNS' });
+              }
+            } else if (transport === 'TCP' && ENCRYPTED.has(dport) && dport !== 22) {
+              const sni = parseSni(v, pOff, pEnd);
+              if (sni && !names.has(dst)) names.set(dst, { ip: dst, name: sni, via: 'TLS SNI' });
+            } else if (transport === 'TCP' && (dport === 80 || dport === 8080 || dport === 3128)) {
+              const host = parseHttpHost(v, pOff, pEnd);
+              if (host && !names.has(dst)) names.set(dst, { ip: dst, name: host, via: 'HTTP Host' });
+            }
+          } catch {
+            /* a malformed payload is not worth failing the packet over */
+          }
+        }
+      }
+
+      conv.services.set(appName, (conv.services.get(appName) ?? 0) + wire);
+      if (klass !== 'other') {
+        // The conversation takes the colour of whatever moved the most bytes.
+        const soFar = conv.services.get(appName) ?? wire;
+        if (soFar >= conv.klassBytes) {
+          conv.klass = klass;
+          conv.klassBytes = soFar;
+        }
+      }
+
+      let app = applications.get(appName);
+      if (!app) applications.set(appName, (app = { name: appName, packets: 0, bytes: 0 }));
+      app.packets++;
+      app.bytes += wire;
+    }
+
+    // Count flows, not packets: three retried SYNs down the same four-tuple are
+    // one connection that failed, not three.
+    for (const flow of synSeen) if (!synAcked.has(flow)) tcp.unanswered++;
+    tcp.attempted = synSeen.size;
+
+    // Attach names learned from DNS/SNI/HTTP back onto the endpoints.
+    for (const hint of names.values()) {
+      const e = endpoints.get(hint.ip);
+      if (e && !e.name) e.name = hint.name;
+    }
+
+    const analysis: Analysis = {
+      format,
+      linkType: linkType < 0 ? 1 : linkType,
+      linkName: LINKTYPES[linkType] ?? `Link type ${linkType}`,
+      snaplen: meta.snaplen,
+      fileBytes: buffer.byteLength,
+      origin: meta.origin,
+      packets,
+      decoded,
+      nonIp,
+      snapped,
+      truncated,
+      start: firstTs,
+      end: lastTs,
+      duration: firstTs && lastTs ? lastTs - firstTs : 0,
+      bytes: totalBytes,
+      traffic: { internal, outbound, inbound, external },
+      endpoints: [...endpoints.values()].sort((x, y) => y.bytes - x.bytes),
+      conversations: [...conversations.values()].sort((x, y) => y.bytes - x.bytes),
+      services: [...services.values()].sort((x, y) => y.bytes - x.bytes),
+      applications: [...applications.values()].sort((x, y) => y.bytes - x.bytes),
+      names: [...names.values()].sort((x, y) => x.name.localeCompare(y.name)),
+      vlans: [...vlans].sort((x, y) => x - y),
+      tcp,
+      timeline: histogram.result(),
+      findings: [],
+    };
+
+    analysis.findings = buildFindings(analysis);
+    return analysis;
+  }
+
+  // --------------------------------------------------------------- findings
+
+  function buildFindings(a: Analysis): Finding[] {
+    const findings: Finding[] = [];
+
+    if (!SUPPORTED_LINKTYPES.has(a.linkType)) {
+      findings.push({
+        level: 'bad',
+        title: `Link type ${a.linkType} is not decoded`,
+        detail: `This capture is ${a.linkName}. Only Ethernet, Linux cooked and raw IP frames are decoded here — convert it with editcap, or re-capture on an Ethernet interface.`,
+      });
+    }
+
+    if (!a.decoded && a.packets) {
+      findings.push({
+        level: 'bad',
+        title: 'No IP packets found',
+        detail: `${plural(a.packets, 'frame')} were read but none carried IPv4 or IPv6. The capture may be entirely link-layer chatter, or a link type this tool does not decode.`,
+      });
+      return findings;
+    }
+
+    const clear = a.services.filter((s) => CLEARTEXT[s.port] !== undefined);
+    if (clear.length) {
+      const top = clear.slice(0, 4).map((s) => `${CLEARTEXT[s.port]} on ${s.ip}:${s.port}`);
+      findings.push({
+        level: 'warn',
+        title: 'Unencrypted services in this capture',
+        detail: `${top.join(', ')}${clear.length > 4 ? `, and ${clear.length - 4} more` : ''}. Anything on the path — including whoever took this capture — could read those payloads.`,
+      });
+    }
+
+    if (a.tcp.unanswered) {
+      const ratio = a.tcp.attempted ? Math.round((a.tcp.unanswered / a.tcp.attempted) * 100) : 0;
+      findings.push({
+        level: a.tcp.unanswered > 3 ? 'bad' : 'warn',
+        title: `${plural(a.tcp.unanswered, 'connection attempt')} never got a SYN-ACK`,
+        detail: `${ratio}% of the ${plural(a.tcp.attempted, 'handshake')} in this capture went unanswered. That is the signature of a firewall dropping traffic, a service that is not listening, or a route that goes nowhere.`,
+      });
+    }
+
+    if (a.tcp.rst) {
+      findings.push({
+        level: a.tcp.rst > a.tcp.syn ? 'warn' : 'info',
+        title: plural(a.tcp.rst, 'TCP reset'),
+        detail:
+          'A reset means one side refused the connection or tore it down abruptly — a closed port, an ACL, or an application that hung up.',
+      });
+    }
+
+    const top = a.endpoints[0];
+    if (top && a.bytes > 0 && a.endpoints.length > 2) {
+      // Every byte is counted once for each end, hence the doubled denominator.
+      const share = (top.bytes / (a.bytes * 2)) * 100;
+      if (share > 55) {
+        findings.push({
+          level: 'info',
+          title: `${top.name ?? top.ip} accounts for ${share.toFixed(0)}% of the traffic`,
+          detail: `It exchanged ${formatBytes(top.bytes)} with ${plural(top.peers.size, 'peer')}. If you captured this to chase a problem, that host is where to start.`,
+        });
+      }
+    }
+
+    const externalPeers = a.endpoints.filter((e) => e.scope === 'public');
+    if (externalPeers.length) {
+      const named = externalPeers.filter((e) => e.name).length;
+      findings.push({
+        level: 'info',
+        title: `${plural(externalPeers.length, 'host')} outside the local networks`,
+        detail: `${formatBytes(a.traffic.outbound)} went out and ${formatBytes(a.traffic.inbound)} came back${named ? `. ${named} of those addresses could be named from DNS answers or TLS handshakes inside the capture itself` : ''}.`,
+      });
+    }
+
+    const spraying = a.endpoints.filter((e) => e.peers.size >= 25 && e.sentPackets > e.recvPackets * 2);
+    if (spraying.length) {
+      findings.push({
+        level: 'warn',
+        title: `${plural(spraying.length, 'host')} talking to many peers one-way`,
+        detail: `${spraying
+          .slice(0, 3)
+          .map((e) => `${e.ip} → ${e.peers.size} peers`)
+          .join(
+            ', ',
+          )}. Mostly-outbound traffic spread across many addresses looks like a scan, or a discovery protocol shouting into the void.`,
+      });
+    }
+
+    if (a.snapped) {
+      findings.push({
+        level: 'info',
+        title: 'Packets were cut short by the snap length',
+        detail: `${plural(a.snapped, 'packet')} were only partly captured${a.snaplen ? ` (snaplen ${a.snaplen} bytes)` : ''}. Byte counts still use the on-the-wire length, but payload details such as TLS SNI may be missing. Capture with -s 0 to keep whole packets.`,
+      });
+    }
+
+    if (a.vlans.length) {
+      findings.push({
+        level: 'info',
+        title: `Traffic tagged on ${plural(a.vlans.length, 'VLAN')}`,
+        detail: `VLAN ${a.vlans.slice(0, 8).join(', ')}${a.vlans.length > 8 ? ' …' : ''} — this came off a trunk port or a tagged interface.`,
+      });
+    }
+
+    if (a.truncated) {
+      findings.push({
+        level: 'warn',
+        title: 'Only the first part of the capture was analysed',
+        detail: `Analysis stopped at ${a.packets.toLocaleString()} packets to keep the page responsive, so everything here describes that slice rather than the whole file. Split it with editcap -c if you need the rest.`,
+      });
+    }
+
+    if (!findings.length) {
+      findings.push({
+        level: 'good',
+        title: 'Nothing stands out',
+        detail:
+          'No failed handshakes, resets, cleartext services or one-sided talkers. The map and the conversation table are still the fastest way to see who was talking to whom.',
+      });
+    }
+
+    return findings;
+  }
+
+  // ==========================================================================
+  // Sample capture. Written byte for byte so the tool has something to show
+  // without asking anyone to hand over a real capture first.
+  // ==========================================================================
+
+  function buildSample(): ArrayBuffer {
+    const frames: { ts: number; bytes: number[] }[] = [];
+    const base = Date.now() / 1000 - 3600;
+
+    const macBytes = (s: string) => s.split(':').map((h) => parseInt(h, 16));
+    const ipBytes = (s: string) => s.split('.').map(Number);
+    const be16 = (n: number) => [(n >> 8) & 0xff, n & 0xff];
+    const be32 = (n: number) => [(n >>> 24) & 0xff, (n >>> 16) & 0xff, (n >>> 8) & 0xff, n & 0xff];
+    const ascii = (s: string) => [...s].map((c) => c.charCodeAt(0));
+
+    function checksum(words: number[]): number {
+      let sum = 0;
+      for (let i = 0; i < words.length; i += 2) sum += (words[i] << 8) + (words[i + 1] ?? 0);
+      while (sum >> 16) sum = (sum & 0xffff) + (sum >> 16);
+      return ~sum & 0xffff;
+    }
+
+    const MACS: Record<string, string> = {
+      '192.168.1.24': 'b4:2e:99:1c:07:aa',
+      '192.168.1.31': '3c:22:fb:64:19:d2',
+      '192.168.1.1': '18:e8:29:5f:03:01',
+    };
+    const gateway = '18:e8:29:5f:03:01';
+
+    const macFor = (ip: string) => MACS[ip] ?? gateway;
+
+    function emit(ts: number, srcIp: string, dstIp: string, proto: number, payload: number[]) {
+      const total = 20 + payload.length;
+      const header = [
+        0x45,
+        0x00,
+        ...be16(total),
+        ...be16(Math.floor(Math.random() * 65535)),
+        0x40,
+        0x00,
+        64,
+        proto,
+        0,
+        0,
+        ...ipBytes(srcIp),
+        ...ipBytes(dstIp),
+      ];
+      const sum = checksum(header);
+      header[10] = (sum >> 8) & 0xff;
+      header[11] = sum & 0xff;
+
+      frames.push({
+        ts,
+        bytes: [
+          ...macBytes(macFor(dstIp)),
+          ...macBytes(macFor(srcIp)),
+          0x08,
+          0x00,
+          ...header,
+          ...payload,
+        ],
+      });
+    }
+
+    const tcp = (sport: number, dport: number, seq: number, ack: number, flags: number, data: number[] = []) => [
+      ...be16(sport),
+      ...be16(dport),
+      ...be32(seq),
+      ...be32(ack),
+      0x50,
+      flags,
+      ...be16(64240),
+      0,
+      0,
+      0,
+      0,
+      ...data,
+    ];
+
+    const udp = (sport: number, dport: number, data: number[]) => [
+      ...be16(sport),
+      ...be16(dport),
+      ...be16(8 + data.length),
+      0,
+      0,
+      ...data,
+    ];
+
+    const dnsName = (name: string) => {
+      const out: number[] = [];
+      for (const label of name.split('.')) {
+        out.push(label.length, ...ascii(label));
+      }
+      out.push(0);
+      return out;
+    };
+
+    const dnsQuery = (id: number, name: string) => [
+      ...be16(id),
+      0x01,
+      0x00,
+      ...be16(1),
+      ...be16(0),
+      ...be16(0),
+      ...be16(0),
+      ...dnsName(name),
+      ...be16(1),
+      ...be16(1),
+    ];
+
+    const dnsAnswer = (id: number, name: string, ip: string) => [
+      ...be16(id),
+      0x81,
+      0x80,
+      ...be16(1),
+      ...be16(1),
+      ...be16(0),
+      ...be16(0),
+      ...dnsName(name),
+      ...be16(1),
+      ...be16(1),
+      0xc0,
+      0x0c,
+      ...be16(1),
+      ...be16(1),
+      ...be32(60),
+      ...be16(4),
+      ...ipBytes(ip),
+    ];
+
+    /** A ClientHello carrying just enough structure to hold an SNI. */
+    const clientHello = (host: string) => {
+      const sniHost = ascii(host);
+      const sni = [...be16(0), ...be16(sniHost.length + 5), ...be16(sniHost.length + 3), 0x00, ...be16(sniHost.length), ...sniHost];
+      const body = [
+        0x03,
+        0x03,
+        ...Array.from({ length: 32 }, () => Math.floor(Math.random() * 256)),
+        0x00, // no session id
+        ...be16(2),
+        0x13,
+        0x01, // one cipher suite
+        0x01,
+        0x00, // one compression method
+        ...be16(sni.length),
+        ...sni,
+      ];
+      const handshake = [0x01, 0x00, ...be16(body.length), ...body];
+      return [0x16, 0x03, 0x01, ...be16(handshake.length), ...handshake];
+    };
+
+    const laptop = '192.168.1.24';
+    const desktop = '192.168.1.31';
+    const router = '192.168.1.1';
+    const intranet = '10.20.4.12';
+    const jump = '10.20.4.30';
+    const db = '10.20.4.41';
+    const blocked = '10.20.4.55';
+    const api = '93.184.216.34';
+    const cdn = '185.199.108.153';
+
+    let t = base;
+    const step = (dt: number) => (t += dt);
+
+    // ARP: the laptop finds its gateway.
+    for (const [src, dst, op] of [
+      [laptop, router, 1],
+      [router, laptop, 2],
+    ] as [string, string, number][]) {
+      frames.push({
+        ts: step(0.02),
+        bytes: [
+          ...macBytes(op === 1 ? 'ff:ff:ff:ff:ff:ff' : macFor(dst)),
+          ...macBytes(macFor(src)),
+          0x08,
+          0x06,
+          ...be16(1),
+          ...be16(0x0800),
+          6,
+          4,
+          ...be16(op),
+          ...macBytes(macFor(src)),
+          ...ipBytes(src),
+          ...macBytes(op === 1 ? '00:00:00:00:00:00' : macFor(dst)),
+          ...ipBytes(dst),
+        ],
+      });
+    }
+
+    // DNS: two lookups through the router.
+    emit(step(0.15), laptop, router, 17, udp(51_324, 53, dnsQuery(0x1a2b, 'api.example.com')));
+    emit(step(0.03), router, laptop, 17, udp(53, 51_324, dnsAnswer(0x1a2b, 'api.example.com', api)));
+    emit(step(0.4), desktop, router, 17, udp(49_876, 53, dnsQuery(0x77c1, 'cdn.example.net')));
+    emit(step(0.04), router, desktop, 17, udp(53, 49_876, dnsAnswer(0x77c1, 'cdn.example.net', cdn)));
+
+    // HTTPS to the API, with a TLS handshake the analyzer can read the SNI from.
+    emit(step(0.02), laptop, api, 6, tcp(44_101, 443, 1000, 0, TCP_SYN));
+    emit(step(0.06), api, laptop, 6, tcp(443, 44_101, 5000, 1001, TCP_SYN | TCP_ACK));
+    emit(step(0.001), laptop, api, 6, tcp(44_101, 443, 1001, 5001, TCP_ACK));
+    emit(step(0.002), laptop, api, 6, tcp(44_101, 443, 1001, 5001, 0x18, clientHello('api.example.com')));
+    for (let i = 0; i < 14; i++) {
+      emit(step(0.03), api, laptop, 6, tcp(443, 44_101, 5001 + i * 1400, 1400, 0x10, new Array(1400).fill(0x41)));
+      if (i % 3 === 0) emit(step(0.004), laptop, api, 6, tcp(44_101, 443, 1400, 5001 + i * 1400, TCP_ACK));
+    }
+    emit(step(0.05), laptop, api, 6, tcp(44_101, 443, 1400, 26_000, TCP_FIN | TCP_ACK));
+    emit(step(0.02), api, laptop, 6, tcp(443, 44_101, 26_000, 1401, TCP_FIN | TCP_ACK));
+
+    // A large, one-sided download from a CDN.
+    emit(step(0.1), desktop, cdn, 6, tcp(51_200, 443, 300, 0, TCP_SYN));
+    emit(step(0.08), cdn, desktop, 6, tcp(443, 51_200, 9000, 301, TCP_SYN | TCP_ACK));
+    emit(step(0.001), desktop, cdn, 6, tcp(51_200, 443, 301, 9001, TCP_ACK));
+    emit(step(0.002), desktop, cdn, 6, tcp(51_200, 443, 301, 9001, 0x18, clientHello('cdn.example.net')));
+    for (let i = 0; i < 40; i++) {
+      emit(step(0.012), cdn, desktop, 6, tcp(443, 51_200, 9001 + i * 1460, 340, 0x10, new Array(1460).fill(0x42)));
+      if (i % 4 === 0) emit(step(0.002), desktop, cdn, 6, tcp(51_200, 443, 340, 9001 + i * 1460, TCP_ACK));
+    }
+
+    // Plain HTTP to an internal app — the cleartext finding.
+    emit(step(0.2), laptop, intranet, 6, tcp(44_512, 80, 700, 0, TCP_SYN));
+    emit(step(0.004), intranet, laptop, 6, tcp(80, 44_512, 8100, 701, TCP_SYN | TCP_ACK));
+    emit(step(0.001), laptop, intranet, 6, tcp(44_512, 80, 701, 8101, TCP_ACK));
+    emit(
+      step(0.002),
+      laptop,
+      intranet,
+      6,
+      tcp(
+        44_512,
+        80,
+        701,
+        8101,
+        0x18,
+        ascii(
+          'GET /dashboard HTTP/1.1\r\nHost: intranet.corp.local\r\nUser-Agent: curl/8.5.0\r\nAccept: */*\r\n\r\n',
+        ),
+      ),
+    );
+    for (let i = 0; i < 6; i++) {
+      emit(step(0.008), intranet, laptop, 6, tcp(80, 44_512, 8101 + i * 1200, 800, 0x18, new Array(1200).fill(0x43)));
+    }
+
+    // SSH to a jump host.
+    emit(step(0.3), laptop, jump, 6, tcp(45_000, 22, 400, 0, TCP_SYN));
+    emit(step(0.003), jump, laptop, 6, tcp(22, 45_000, 7000, 401, TCP_SYN | TCP_ACK));
+    for (let i = 0; i < 18; i++) {
+      emit(step(0.09), laptop, jump, 6, tcp(45_000, 22, 401 + i * 60, 7001, 0x18, new Array(52).fill(0x44)));
+      emit(step(0.01), jump, laptop, 6, tcp(22, 45_000, 7001 + i * 90, 461 + i * 60, 0x18, new Array(84).fill(0x45)));
+    }
+
+    // A database port that refuses the connection outright.
+    emit(step(0.4), laptop, db, 6, tcp(45_310, 5432, 900, 0, TCP_SYN));
+    emit(step(0.002), db, laptop, 6, tcp(5432, 45_310, 0, 901, TCP_RST | TCP_ACK));
+
+    // And one that answers nothing at all — three retried SYNs, no reply.
+    for (let i = 0; i < 3; i++) {
+      emit(step(i === 0 ? 0.2 : 1.0), laptop, blocked, 6, tcp(45_400, 6379, 1200, 0, TCP_SYN));
+    }
+
+    // Background noise: mDNS, NTP and a ping.
+    emit(step(0.3), laptop, '224.0.0.251', 17, udp(5353, 5353, dnsQuery(0x0000, 'printer.local')));
+    emit(step(0.05), desktop, '224.0.0.251', 17, udp(5353, 5353, dnsQuery(0x0000, 'printer.local')));
+    emit(step(0.6), laptop, router, 17, udp(123, 123, new Array(48).fill(0x23)));
+    emit(step(0.02), router, laptop, 17, udp(123, 123, new Array(48).fill(0x24)));
+    for (let i = 0; i < 4; i++) {
+      emit(step(0.5), laptop, '8.8.8.8', 1, [8, 0, 0xf7, 0xff, ...be16(1), ...be16(i + 1), ...new Array(56).fill(0x10)]);
+      emit(step(0.014), '8.8.8.8', laptop, 1, [0, 0, 0xff, 0xff, ...be16(1), ...be16(i + 1), ...new Array(56).fill(0x10)]);
+    }
+
+    // ---- serialise as little-endian, microsecond libpcap
+    const total = 24 + frames.reduce((sum, f) => sum + 16 + f.bytes.length, 0);
+    const out = new Uint8Array(total);
+    const view = new DataView(out.buffer);
+
+    view.setUint32(0, 0xa1b2c3d4, true);
+    view.setUint16(4, 2, true);
+    view.setUint16(6, 4, true);
+    view.setUint32(8, 0, true);
+    view.setUint32(12, 0, true);
+    view.setUint32(16, 262144, true);
+    view.setUint32(20, 1, true);
+
+    let off = 24;
+    for (const frame of frames) {
+      view.setUint32(off, Math.floor(frame.ts), true);
+      view.setUint32(off + 4, Math.round((frame.ts % 1) * 1e6), true);
+      view.setUint32(off + 8, frame.bytes.length, true);
+      view.setUint32(off + 12, frame.bytes.length, true);
+      out.set(frame.bytes, off + 16);
+      off += 16 + frame.bytes.length;
+    }
+
+    return out.buffer;
+  }
+
+  // ==========================================================================
+  // Rendering
+  // ==========================================================================
+
+  const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T | null;
+
+  const esc = (s: string) =>
+    s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
+
+  const SVG_NS = 'http://www.w3.org/2000/svg';
+
+  /** Chart colours that stay legible on both the light and dark palettes. */
+  const SERIES = ['#5ea9f0', '#3ecf8e', '#e5a34c', '#f0716f', '#a78bfa', '#4cc9d4', '#ef7fb4', '#8fa3b8'];
+
+  const EDGE_COLOR: Record<Class, string> = {
+    enc: 'var(--signal)',
+    clear: 'var(--guard)',
+    infra: 'var(--health)',
+    other: 'var(--line-3)',
+  };
+
+  const fileInput = $<HTMLInputElement>('capture');
+  const drop = $<HTMLLabelElement>('drop');
+  const status = $('status');
+  const results = $('results');
+  const mapSvg = document.getElementById('map') as SVGSVGElement | null;
+  const timelineSvg = document.getElementById('timeline') as SVGSVGElement | null;
+  const readout = $('map-readout');
+  const hideNoise = $<HTMLInputElement>('hide-noise');
+  const useNames = $<HTMLInputElement>('use-names');
+
+  let current: Analysis | null = null;
+  let selected: string | null = null;
+  let reportText = '';
+
+  const label = (ip: string): string => {
+    if (!current || !useNames?.checked) return ip;
+    const e = current.endpoints.find((x) => x.ip === ip);
+    return e?.name ?? ip;
+  };
+
+  const shorten = (s: string, max = 22) => (s.length <= max ? s : `${s.slice(0, max - 1)}…`);
+
+  function setStatus(message: string, kind: '' | 'error' | 'ok' = '') {
+    if (!status) return;
+    status.textContent = message;
+    status.className = `tool-status${kind ? ` tool-status--${kind}` : ''}`;
+  }
+
+  // ------------------------------------------------------------------ stats
+
+  function renderStats(a: Analysis) {
+    const hosts = a.endpoints.length;
+    const tiles: [string, string][] = [
+      [a.packets.toLocaleString(), a.truncated ? 'packets read (capped)' : 'packets'],
+      [formatBytes(a.bytes), 'on the wire'],
+      [formatDuration(a.duration), 'of traffic'],
+      [hosts.toLocaleString(), hosts === 1 ? 'host' : 'hosts'],
+      [a.conversations.length.toLocaleString(), 'conversations'],
+      [a.services.length.toLocaleString(), 'services'],
+    ];
+
+    const stats = $('stats');
+    if (stats) {
+      stats.innerHTML = tiles
+        .map(
+          ([value, name]) =>
+            `<div class="stat"><div class="stat__value">${esc(value)}</div><div class="stat__label">${esc(name)}</div></div>`,
+        )
+        .join('');
+    }
+
+    const rows: [string, string][] = [
+      ['Format', `${a.format} · ${a.linkName} · ${a.snaplen ? `snaplen ${a.snaplen.toLocaleString()}` : 'no snaplen'}`],
+      ['File size', formatBytes(a.fileBytes)],
+      [
+        'First packet',
+        a.start ? new Date(a.start * 1000).toLocaleString(undefined, { timeZoneName: 'short' }) : 'no timestamps',
+      ],
+      [
+        'Traffic split',
+        `${formatBytes(a.traffic.internal)} internal · ${formatBytes(a.traffic.outbound)} out · ${formatBytes(a.traffic.inbound)} in`,
+      ],
+      [
+        'TCP',
+        `${a.tcp.syn} SYN · ${a.tcp.synAck} SYN-ACK · ${a.tcp.rst} RST · ${a.tcp.fin} FIN`,
+      ],
+      ['Not IP', a.nonIp ? `${a.nonIp.toLocaleString()} frames (ARP, STP, or link-layer only)` : 'none'],
+    ];
+    if (a.origin.length) rows.push(['Captured by', a.origin.join(' · ')]);
+
+    const details = $('capture-details');
+    if (details) {
+      details.innerHTML = rows
+        .map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`)
+        .join('');
+    }
+  }
+
+  // --------------------------------------------------------------- timeline
+
+  function renderTimeline(a: Analysis) {
+    if (!timelineSvg) return;
+    timelineSvg.textContent = '';
+
+    const data = a.timeline.bytes;
+    const peak = Math.max(...data, 1);
+    const width = 960;
+    const height = 90;
+    const gap = data.length > 120 ? 0.5 : 1.5;
+    const barWidth = Math.max(width / data.length - gap, 0.6);
+
+    for (let i = 0; i < data.length; i++) {
+      const h = Math.max((data[i] / peak) * (height - 6), data[i] > 0 ? 1.5 : 0);
+      if (!h) continue;
+      const rect = document.createElementNS(SVG_NS, 'rect');
+      rect.setAttribute('x', String((i * width) / data.length));
+      rect.setAttribute('y', String(height - h));
+      rect.setAttribute('width', String(barWidth));
+      rect.setAttribute('height', String(h));
+      rect.setAttribute('fill', 'var(--signal)');
+      rect.setAttribute('opacity', '0.75');
+      timelineSvg.appendChild(rect);
+    }
+
+    const caption = $('timeline-caption');
+    if (caption) {
+      const step = a.timeline.step;
+      const stepText = step >= 1 ? `${step.toFixed(step < 10 ? 1 : 0)} s` : `${(step * 1000).toFixed(0)} ms`;
+      caption.textContent = a.duration
+        ? `Each bar is ${stepText} · peak ${formatBytes(peak / step)}/s · ${formatBytes(a.bytes / a.duration)}/s average`
+        : 'The capture has no usable timestamps.';
+    }
+  }
+
+  // --------------------------------------------------------------------- map
+
+  interface MapNode {
+    ip: string;
+    endpoint: Endpoint;
+    x: number;
+    y: number;
+    angle: number;
+    r: number;
+  }
+
+  function renderMap(a: Analysis) {
+    if (!mapSvg) return;
+    mapSvg.textContent = '';
+    selected = null;
+
+    const skipNoise = hideNoise?.checked ?? true;
+    const conversations = a.conversations.filter(
+      (c) => !skipNoise || (!isNoise(scopeOf(c.a)) && !isNoise(scopeOf(c.b))),
+    );
+
+    const MAX_NODES = 26;
+    const ranked = a.endpoints.filter((e) => !skipNoise || !isNoise(e.scope));
+    const shown = new Set(ranked.slice(0, MAX_NODES).map((e) => e.ip));
+    const edges = conversations.filter((c) => shown.has(c.a) && shown.has(c.b)).slice(0, 220);
+
+    const nodes = ranked.filter((e) => shown.has(e.ip) && edges.some((c) => c.a === e.ip || c.b === e.ip));
+
+    if (!nodes.length) {
+      const text = document.createElementNS(SVG_NS, 'text');
+      text.setAttribute('x', '480');
+      text.setAttribute('y', '330');
+      text.setAttribute('text-anchor', 'middle');
+      text.setAttribute('class', 'map-empty');
+      text.textContent = 'No conversations to draw.';
+      mapSvg.appendChild(text);
+      if (readout) readout.textContent = '';
+      return;
+    }
+
+    // Your own networks get the left half of the ring and the internet gets the
+    // right, so the shape of the picture says something before you read a
+    // single label. With only one kind of host present, use the whole ring.
+    const locals = nodes.filter((n) => n.local);
+    const remotes = nodes.filter((n) => !n.local);
+    const split = locals.length > 0 && remotes.length > 0;
+
+    const cx = 480;
+    const cy = 330;
+    const radius = 232;
+    const maxBytes = Math.max(...nodes.map((e) => e.bytes), 1);
+
+    // Angles run clockwise from the top of the SVG, where y grows downward.
+    const arc = (i: number, n: number, from: number, to: number) =>
+      n === 1 ? (from + to) / 2 : from + ((i + 0.5) / n) * (to - from);
+
+    const place = (endpoint: Endpoint, angle: number): MapNode => ({
+      ip: endpoint.ip,
+      endpoint,
+      angle,
+      x: cx + Math.cos(angle) * radius,
+      y: cy + Math.sin(angle) * radius,
+      r: 3.5 + Math.sqrt(endpoint.bytes / maxBytes) * 7,
+    });
+
+    const placed: MapNode[] = split
+      ? [
+          // bottom → left → top
+          ...locals.map((e, i) => place(e, arc(i, locals.length, Math.PI / 2, (3 * Math.PI) / 2))),
+          // top → right → bottom
+          ...remotes.map((e, i) => place(e, arc(i, remotes.length, -Math.PI / 2, Math.PI / 2))),
+        ]
+      : nodes.map((e, i) => place(e, arc(i, nodes.length, -Math.PI / 2, (3 * Math.PI) / 2)));
+
+    const byIp = new Map(placed.map((n) => [n.ip, n]));
+    const maxEdge = Math.max(...edges.map((c) => c.bytes), 1);
+
+    const linkLayer = document.createElementNS(SVG_NS, 'g');
+    const nodeLayer = document.createElementNS(SVG_NS, 'g');
+    mapSvg.append(linkLayer, nodeLayer);
+
+    const linkEls: { el: SVGPathElement; a: string; b: string; conv: Conversation }[] = [];
+
+    for (const conv of edges) {
+      const from = byIp.get(conv.a);
+      const to = byIp.get(conv.b);
+      if (!from || !to) continue;
+
+      // Bow the chord towards the centre so dense maps stay readable.
+      const path = document.createElementNS(SVG_NS, 'path');
+      const mx = (from.x + to.x) / 2;
+      const my = (from.y + to.y) / 2;
+      const bend = 0.55;
+      path.setAttribute(
+        'd',
+        `M${from.x.toFixed(1)} ${from.y.toFixed(1)} Q${(mx + (cx - mx) * bend).toFixed(1)} ${(my + (cy - my) * bend).toFixed(1)} ${to.x.toFixed(1)} ${to.y.toFixed(1)}`,
+      );
+      path.setAttribute('class', 'link');
+      path.setAttribute('stroke', EDGE_COLOR[conv.klass]);
+      path.setAttribute('stroke-width', String(0.8 + Math.sqrt(conv.bytes / maxEdge) * 5));
+      path.setAttribute('opacity', '0.5');
+      linkLayer.appendChild(path);
+      linkEls.push({ el: path, a: conv.a, b: conv.b, conv });
+    }
+
+    const groups: { ip: string; el: SVGGElement }[] = [];
+
+    for (const node of placed) {
+      const group = document.createElementNS(SVG_NS, 'g');
+      group.setAttribute('class', 'node-group');
+      group.setAttribute('tabindex', '0');
+      group.setAttribute('role', 'button');
+
+      const dot = document.createElementNS(SVG_NS, 'circle');
+      dot.setAttribute('cx', node.x.toFixed(1));
+      dot.setAttribute('cy', node.y.toFixed(1));
+      dot.setAttribute('r', node.r.toFixed(1));
+      dot.setAttribute('class', 'node-dot');
+      dot.setAttribute('fill', node.endpoint.local ? 'var(--health)' : 'var(--bg)');
+      dot.setAttribute('stroke', node.endpoint.local ? 'var(--health)' : 'var(--signal)');
+
+      const cos = Math.cos(node.angle);
+      const text = document.createElementNS(SVG_NS, 'text');
+      text.setAttribute('x', (node.x + cos * (node.r + 7)).toFixed(1));
+      text.setAttribute('y', (node.y + Math.sin(node.angle) * (node.r + 7) + 4).toFixed(1));
+      text.setAttribute('text-anchor', cos < -0.15 ? 'end' : cos > 0.15 ? 'start' : 'middle');
+      text.setAttribute('class', 'node-label');
+      text.textContent = shorten(label(node.ip));
+
+      const title = document.createElementNS(SVG_NS, 'title');
+      title.textContent = `${node.ip}${node.endpoint.name ? ` (${node.endpoint.name})` : ''} — ${formatBytes(node.endpoint.bytes)}, ${plural(node.endpoint.peers.size, 'peer')}`;
+
+      group.append(dot, text, title);
+      group.addEventListener('mouseenter', () => focusNode(node.ip));
+      group.addEventListener('focus', () => focusNode(node.ip));
+      group.addEventListener('mouseleave', () => focusNode(selected));
+      group.addEventListener('blur', () => focusNode(selected));
+      group.addEventListener('click', () => {
+        selected = selected === node.ip ? null : node.ip;
+        focusNode(selected);
+        renderConversations(a, selected);
+      });
+      group.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          group.dispatchEvent(new Event('click'));
+        }
+      });
+
+      nodeLayer.appendChild(group);
+      groups.push({ ip: node.ip, el: group });
+    }
+
+    function focusNode(ip: string | null) {
+      for (const { el, a: x, b: y, conv } of linkEls) {
+        const on = !ip || x === ip || y === ip;
+        el.setAttribute('opacity', on ? (ip ? '0.95' : '0.5') : '0.06');
+        el.setAttribute(
+          'stroke-width',
+          String((ip && on ? 1.6 : 0.8) + Math.sqrt(conv.bytes / maxEdge) * 5),
+        );
+      }
+
+      const neighbours = ip
+        ? new Set(edges.filter((c) => c.a === ip || c.b === ip).flatMap((c) => [c.a, c.b]))
+        : null;
+
+      for (const { ip: nodeIp, el } of groups) {
+        el.classList.toggle('is-dim', !!neighbours && !neighbours.has(nodeIp));
+        el.classList.toggle('is-active', nodeIp === ip);
+      }
+
+      describe(ip);
+    }
+
+    function describe(ip: string | null) {
+      if (!readout) return;
+      if (!ip) {
+        const hidden = a.endpoints.length - placed.length;
+        readout.innerHTML = `${esc(plural(placed.length, 'host'))} and ${esc(plural(edges.length, 'conversation'))} drawn${
+          hidden > 0 ? `, ${hidden.toLocaleString()} smaller host${hidden === 1 ? '' : 's'} left out` : ''
+        }. Hover a host to isolate its traffic, click to pin it and filter the table below.`;
+        return;
+      }
+
+      const endpoint = a.endpoints.find((e) => e.ip === ip);
+      if (!endpoint) return;
+      const mine = edges.filter((c) => c.a === ip || c.b === ip).sort((x, y) => y.bytes - x.bytes);
+      const top = mine
+        .slice(0, 3)
+        .map((c) => {
+          const other = c.a === ip ? c.b : c.a;
+          return `${esc(shorten(label(other), 28))} (${esc(formatBytes(c.bytes))})`;
+        })
+        .join(', ');
+
+      readout.innerHTML =
+        `<b>${esc(endpoint.name ? `${endpoint.name} — ${ip}` : ip)}</b> · ${esc(SCOPE_LABEL[endpoint.scope])}` +
+        `${endpoint.mac ? ` · ${esc(endpoint.mac)}` : ''} · sent ${esc(formatBytes(endpoint.sentBytes))}, received ${esc(formatBytes(endpoint.recvBytes))}` +
+        `${endpoint.listens.size ? ` · serving on ${esc([...endpoint.listens].sort((x, y) => x - y).slice(0, 6).join(', '))}` : ''}` +
+        `<br>Talks to ${esc(plural(mine.length, 'host'))}${top ? `: ${top}` : ''}`;
+    }
+
+    focusNode(null);
+  }
+
+  // ------------------------------------------------------------ protocol bar
+
+  function renderProtocols(a: Analysis) {
+    const bar = $('protobar');
+    const legend = $('proto-legend');
+    if (!bar || !legend) return;
+
+    const top = a.applications.slice(0, 8);
+    const rest = a.applications.slice(8).reduce((sum, p) => sum + p.bytes, 0);
+    const total = a.bytes || 1;
+    const parts = rest > 0 ? [...top, { name: 'everything else', packets: 0, bytes: rest }] : top;
+
+    bar.innerHTML = parts
+      .map(
+        (p, i) =>
+          `<span style="flex:${p.bytes};background:${SERIES[i % SERIES.length]}" title="${esc(p.name)} — ${esc(formatBytes(p.bytes))}"></span>`,
+      )
+      .join('');
+
+    legend.innerHTML = parts
+      .map(
+        (p, i) =>
+          `<li><i style="background:${SERIES[i % SERIES.length]}"></i><b>${esc(p.name)}</b><span>${esc(formatBytes(p.bytes))} · ${((p.bytes / total) * 100).toFixed(1)}%</span></li>`,
+      )
+      .join('');
+  }
+
+  // ------------------------------------------------------------------ tables
+
+  const hostCell = (ip: string, name?: string) =>
+    name
+      ? `<span class="host-name">${esc(name)}</span><br><span class="host-ip">${esc(ip)}</span>`
+      : `<span class="host-name">${esc(ip)}</span>`;
+
+  function renderConversations(a: Analysis, filterIp: string | null = null) {
+    const body = $('conv-body');
+    const count = $('conv-count');
+    if (!body) return;
+
+    const all = filterIp ? a.conversations.filter((c) => c.a === filterIp || c.b === filterIp) : a.conversations;
+    const rows = all.slice(0, 60);
+    const named = (ip: string) => {
+      const e = a.endpoints.find((x) => x.ip === ip);
+      return hostCell(ip, e?.name);
+    };
+
+    body.innerHTML = rows
+      .map((c) => {
+        const services = [...c.services.entries()].sort((x, y) => y[1] - x[1]).slice(0, 3).map(([n]) => n);
+        return `<tr${filterIp && (c.a === filterIp || c.b === filterIp) ? ' class="is-selected"' : ''}>
+          <td>${named(c.a)}</td>
+          <td>${named(c.b)}</td>
+          <td class="num">${esc(formatBytes(c.aBytes))}</td>
+          <td class="num">${esc(formatBytes(c.bBytes))}</td>
+          <td class="num">${c.packets.toLocaleString()}</td>
+          <td class="num">${esc(formatBytes(c.bytes))}</td>
+          <td>${esc(services.join(', ') || '—')}${c.rst ? ' <span class="tag tag--warn">reset</span>' : ''}</td>
+          <td class="muted-cell">${esc(formatDuration(c.last - c.first))}</td>
+        </tr>`;
+      })
+      .join('');
+
+    if (count) {
+      count.textContent = filterIp
+        ? `${all.length} involving ${filterIp} — click the host again to clear`
+        : `${a.conversations.length.toLocaleString()} total${a.conversations.length > rows.length ? `, showing the ${rows.length} largest` : ''}`;
+    }
+  }
+
+  function renderHosts(a: Analysis) {
+    const body = $('host-body');
+    const count = $('host-count');
+    if (!body) return;
+
+    const rows = a.endpoints.slice(0, 60);
+    body.innerHTML = rows
+      .map(
+        (e) => `<tr>
+          <td>${hostCell(e.ip, e.name)}</td>
+          <td class="muted-cell">${esc(SCOPE_LABEL[e.scope])}</td>
+          <td class="num">${esc(formatBytes(e.sentBytes))}</td>
+          <td class="num">${esc(formatBytes(e.recvBytes))}</td>
+          <td class="num">${e.packets.toLocaleString()}</td>
+          <td class="num">${e.peers.size.toLocaleString()}</td>
+          <td class="muted-cell">${esc(
+            [...e.listens]
+              .sort((x, y) => x - y)
+              .slice(0, 6)
+              .map((p) => SERVICES[p] ?? String(p))
+              .join(', ') || '—',
+          )}</td>
+        </tr>`,
+      )
+      .join('');
+
+    if (count) {
+      count.textContent = `${a.endpoints.length.toLocaleString()} total${a.endpoints.length > rows.length ? `, showing the ${rows.length} busiest` : ''}`;
+    }
+  }
+
+  function renderServices(a: Analysis) {
+    const body = $('svc-body');
+    const count = $('svc-count');
+    const panel = $('services-panel');
+    if (!body || !panel) return;
+
+    panel.hidden = a.services.length === 0;
+    const rows = a.services.slice(0, 40);
+
+    body.innerHTML = rows
+      .map((s) => {
+        const klass = classOf(s.port);
+        const tag =
+          klass === 'enc'
+            ? '<span class="tag tag--ok">encrypted</span>'
+            : klass === 'clear'
+              ? '<span class="tag tag--warn">cleartext</span>'
+              : klass === 'infra'
+                ? '<span class="tag">infrastructure</span>'
+                : '<span class="tag">unknown</span>';
+        const e = a.endpoints.find((x) => x.ip === s.ip);
+        return `<tr>
+          <td>${esc(s.name)}</td>
+          <td>${hostCell(`${s.ip}:${s.port}/${s.transport.toLowerCase()}`, e?.name)}</td>
+          <td class="num">${s.clients.size.toLocaleString()}</td>
+          <td class="num">${s.packets.toLocaleString()}</td>
+          <td class="num">${esc(formatBytes(s.bytes))}</td>
+          <td>${tag}</td>
+        </tr>`;
+      })
+      .join('');
+
+    if (count) {
+      count.textContent = `${a.services.length.toLocaleString()} total${a.services.length > rows.length ? `, showing the ${rows.length} busiest` : ''}`;
+    }
+  }
+
+  function renderNames(a: Analysis) {
+    const body = $('names-body');
+    const panel = $('names-panel');
+    if (!body || !panel) return;
+
+    panel.hidden = a.names.length === 0;
+    body.innerHTML = a.names
+      .slice(0, 60)
+      .map(
+        (n) =>
+          `<tr><td>${esc(n.name)}</td><td>${esc(n.ip)}</td><td class="muted-cell">${esc(n.via)}</td></tr>`,
+      )
+      .join('');
+  }
+
+  function renderFindings(a: Analysis) {
+    const list = $('findings');
+    if (!list) return;
+    list.innerHTML = a.findings
+      .map(
+        (f) =>
+          `<li class="is-${f.level}"><div><strong>${esc(f.title)}</strong>${esc(f.detail)}</div></li>`,
+      )
+      .join('');
+  }
+
+  function renderTshark(a: Analysis) {
+    const pre = $('tshark');
+    if (!pre) return;
+    const top = a.endpoints[0]?.ip ?? '10.0.0.1';
+    pre.textContent = [
+      '# who talked to whom, by volume — the table above',
+      'tshark -r capture.pcap -q -z conv,ip',
+      '',
+      '# the same for TCP and UDP, port by port',
+      'tshark -r capture.pcap -q -z conv,tcp',
+      '',
+      '# protocol breakdown by bytes',
+      'tshark -r capture.pcap -q -z io,phs',
+      '',
+      '# connections that were never answered',
+      'tshark -r capture.pcap -Y "tcp.flags.syn==1 && tcp.flags.ack==0"',
+      '',
+      '# names the capture reveals about itself',
+      'tshark -r capture.pcap -Y "dns.flags.response==1" -T fields -e dns.qry.name -e dns.a',
+      'tshark -r capture.pcap -Y "tls.handshake.type==1" -T fields -e tls.handshake.extensions_server_name',
+      '',
+      `# everything one host said`,
+      `tshark -r capture.pcap -Y "ip.addr==${top}"`,
+    ].join('\n');
+  }
+
+  function buildReport(a: Analysis): string {
+    const lines = [
+      `Capture: ${a.format}, ${a.linkName}, ${formatBytes(a.fileBytes)}`,
+      `${a.packets.toLocaleString()} packets · ${formatBytes(a.bytes)} · ${formatDuration(a.duration)}${a.start ? ` from ${new Date(a.start * 1000).toISOString()}` : ''}`,
+      `${a.endpoints.length} hosts · ${a.conversations.length} conversations · ${a.services.length} services`,
+      '',
+      'Top conversations:',
+      ...a.conversations
+        .slice(0, 10)
+        .map(
+          (c) =>
+            `  ${label(c.a)} <-> ${label(c.b)}  ${formatBytes(c.bytes)} (${c.packets} pkts, ${[...c.services.keys()].slice(0, 3).join('/')})`,
+        ),
+      '',
+      'Top talkers:',
+      ...a.endpoints
+        .slice(0, 10)
+        .map(
+          (e) =>
+            `  ${e.name ? `${e.name} (${e.ip})` : e.ip}  sent ${formatBytes(e.sentBytes)}, received ${formatBytes(e.recvBytes)}, ${e.peers.size} peers`,
+        ),
+      '',
+      'Findings:',
+      ...a.findings.map((f) => `  [${f.level}] ${f.title} — ${f.detail}`),
+    ];
+    return lines.join('\n');
+  }
+
+  function render(a: Analysis) {
+    current = a;
+    renderStats(a);
+    renderTimeline(a);
+    renderMap(a);
+    renderProtocols(a);
+    renderFindings(a);
+    renderConversations(a);
+    renderHosts(a);
+    renderServices(a);
+    renderNames(a);
+    renderTshark(a);
+    reportText = buildReport(a);
+    if (results) results.hidden = false;
+  }
+
+  // ------------------------------------------------------------------- wire
+
+  const yieldToPaint = () => new Promise((resolve) => setTimeout(resolve, 16));
+
+  async function load(buffer: ArrayBuffer, name: string) {
+    setStatus(`Parsing ${name} — ${formatBytes(buffer.byteLength)}…`);
+    await yieldToPaint();
+
+    const started = performance.now();
+    try {
+      const analysis = analyze(buffer);
+      render(analysis);
+      const ms = Math.round(performance.now() - started);
+      setStatus(
+        `${name} — ${analysis.packets.toLocaleString()} packets read in ${ms} ms, entirely in this tab.`,
+        'ok',
+      );
+      drop?.classList.add('is-loaded');
+      const main = drop?.querySelector('.drop__main');
+      if (main) main.textContent = `${name} — drop another to replace it`;
+    } catch (error) {
+      if (results) results.hidden = true;
+      setStatus(error instanceof CaptureError ? error.message : `Could not read that capture: ${error}`, 'error');
+    }
+  }
+
+  async function handleFile(file: File) {
+    if (file.size > MAX_FILE_BYTES) {
+      setStatus(
+        `That file is ${formatBytes(file.size)}. Split it first — editcap -c 200000 big.pcap part.pcap — and open a slice.`,
+        'error',
+      );
+      return;
+    }
+
+    setStatus(`Reading ${file.name}…`);
+    try {
+      const buffer = await readCaptureFile(file);
+      await load(buffer, file.name);
+      // Clear the input so re-picking the same file still fires a change event.
+      if (fileInput) fileInput.value = '';
+    } catch (error) {
+      setStatus(error instanceof CaptureError ? error.message : `Could not read that file: ${error}`, 'error');
+    }
+  }
+
+  fileInput?.addEventListener('change', () => {
+    const file = fileInput.files?.[0];
+    if (file) void handleFile(file);
+  });
+
+  for (const type of ['dragenter', 'dragover']) {
+    drop?.addEventListener(type, (event) => {
+      event.preventDefault();
+      drop.classList.add('is-over');
+    });
+  }
+
+  for (const type of ['dragleave', 'drop']) {
+    drop?.addEventListener(type, () => drop.classList.remove('is-over'));
+  }
+
+  drop?.addEventListener('drop', (event) => {
+    event.preventDefault();
+    const file = (event as DragEvent).dataTransfer?.files?.[0];
+    if (file) void handleFile(file);
+  });
+
+  $('sample-btn')?.addEventListener('click', () => {
+    void load(buildSample(), 'sample-office-lan.pcap');
+  });
+
+  $('clear-btn')?.addEventListener('click', () => {
+    current = null;
+    selected = null;
+    reportText = '';
+    if (fileInput) fileInput.value = '';
+    if (results) results.hidden = true;
+    drop?.classList.remove('is-loaded');
+    const main = drop?.querySelector('.drop__main');
+    if (main) main.innerHTML = 'Drop a <code>.pcap</code>, <code>.pcapng</code> or <code>.pcap.gz</code> here';
+    setStatus('');
+  });
+
+  hideNoise?.addEventListener('change', () => {
+    if (!current) return;
+    renderMap(current); // clears any pinned host, so drop the table filter too
+    renderConversations(current);
+  });
+
+  useNames?.addEventListener('change', () => {
+    if (!current) return;
+    renderMap(current);
+    renderConversations(current, selected);
+  });
+
+  $('copy-report')?.addEventListener('click', async (event) => {
+    const button = event.currentTarget as HTMLButtonElement;
+    const original = button.textContent;
+    try {
+      await navigator.clipboard.writeText(reportText);
+      button.textContent = 'Copied ✓';
+    } catch {
+      button.textContent = 'Copy failed';
+    }
+    setTimeout(() => {
+      button.textContent = original;
+    }, 1600);
+  });
+</script>
