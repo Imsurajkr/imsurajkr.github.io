@@ -2,6 +2,12 @@
 title: "Base64 Is Not Encryption, and Decoding a JWT Is Not Verifying It"
 description: "Two things everyone learns the hard way: a Kubernetes secret is plain text with extra steps, and a decoded token tells you what it claims, not whether any of it is true."
 pubDate: 2026-08-12
+heroImage: "https://images.unsplash.com/photo-1614064641938-3bbee52942c7?ixid=M3wxMDI2MzIyfDB8MXxzZWFyY2h8MXx8cGFkbG9jayUyMHNlY3VyaXR5JTIwa2V5cyUyMG1ldGFsfGVufDF8MHx8fDE3ODY1Mjg3NzF8MA&ixlib=rb-4.1.0&w=1200&h=630&fit=crop&crop=entropy&q=70&fm=jpg"
+heroImageAlt: "red padlock on black computer keyboard"
+heroCredit:
+  name: "FlyD"
+  profile: "https://unsplash.com/@flyd2069?utm_source=surajkr_dev&utm_medium=referral"
+  photo: "https://unsplash.com/photos/red-padlock-on-black-computer-keyboard-mT7lXZPjk7U?utm_source=surajkr_dev&utm_medium=referral"
 tags:
   - "security"
 ---

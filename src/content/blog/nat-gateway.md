@@ -2,7 +2,12 @@
 title: "Demystifying NAT: How It Works Locally and Enhances Security"
 description: "What NAT actually does at the edge of your network, the security it gives you as a side effect rather than by design, what it costs you in return, and how to read the translation table on Ubuntu."
 pubDate: 2024-02-05
-heroImage: "https://images.unsplash.com/15/tricycle.JPG?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
+heroImage: "https://images.unsplash.com/photo-1516044734145-07ca8eef8731?ixid=M3wxMDI2MzIyfDB8MXxzZWFyY2h8M3x8cm91dGVyJTIwbmV0d29yayUyMGhhcmR3YXJlfGVufDF8MHx8fDE3ODY1Mjg3NzJ8MA&ixlib=rb-4.1.0&w=1200&h=630&fit=crop&crop=entropy&q=70&fm=jpg"
+heroImageAlt: "white and black modem router with four lights"
+heroCredit:
+  name: "Misha Feshchak"
+  profile: "https://unsplash.com/@extaf_ms?utm_source=surajkr_dev&utm_medium=referral"
+  photo: "https://unsplash.com/photos/white-and-black-modem-router-with-four-lights-syCXK9WndqQ?utm_source=surajkr_dev&utm_medium=referral"
 tags:
   - "networking"
   - "security"

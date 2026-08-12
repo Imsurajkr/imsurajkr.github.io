@@ -105,15 +105,25 @@ const toc = headings.filter((h) => h.depth === 2 || h.depth === 3);
     {
       post.data.heroImage && (
         <div class="wrap">
-          <img
-            class="post__hero"
-            src={post.data.heroImage}
-            alt=""
-            width="1200"
-            height="630"
-            loading="eager"
-            decoding="async"
-          />
+          <figure class="post__hero-figure">
+            <img
+              class="post__hero"
+              src={post.data.heroImage}
+              alt={post.data.heroImageAlt}
+              width="1200"
+              height="630"
+              loading="eager"
+              decoding="async"
+            />
+            {post.data.heroCredit && (
+              <figcaption class="post__credit">
+                {'Photo by '}
+                <a href={post.data.heroCredit.profile} rel="noopener nofollow">{post.data.heroCredit.name}</a>
+                {' on '}
+                <a href={post.data.heroCredit.photo} rel="noopener nofollow">{post.data.heroCredit.source}</a>
+              </figcaption>
+            )}
+          </figure>
         </div>
       )
     }
@@ -225,13 +235,34 @@ const toc = headings.filter((h) => h.depth === 2 || h.depth === 3);
     padding: 0;
   }
 
+  .post__hero-figure {
+    margin: 0 0 2.5rem;
+  }
+
   .post__hero {
     width: 100%;
     max-height: 26rem;
     object-fit: cover;
     border-radius: var(--r);
     border: 1px solid var(--line);
-    margin-bottom: 2.5rem;
+    display: block;
+  }
+
+  .post__credit {
+    margin-top: 0.5rem;
+    font-size: 0.74rem;
+    font-family: var(--font-mono);
+    color: var(--fg-4);
+  }
+
+  .post__credit a {
+    color: var(--fg-3);
+    text-decoration: none;
+    border-bottom: 1px solid var(--line-2);
+  }
+
+  .post__credit a:hover {
+    color: var(--signal);
   }
 
   .post__layout {

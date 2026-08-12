@@ -2,6 +2,12 @@
 title: "Reading an IPv4 Address"
 description: "192.168.255.1 belongs to 33 different networks at once, and which one you mean depends entirely on the mask. How prefixes work, which blocks are reserved, and how to split a range without leaving gaps."
 pubDate: 2026-08-12
+heroImage: "https://images.unsplash.com/photo-1683322499436-f4383dd59f5a?ixid=M3wxMDI2MzIyfDB8MXxzZWFyY2h8Mnx8bmV0d29yayUyMHN3aXRjaCUyMHBhdGNoJTIwcGFuZWwlMjBjYWJsZXN8ZW58MXwwfHx8MTc4NjUyODc2OHww&ixlib=rb-4.1.0&w=1200&h=630&fit=crop&crop=entropy&q=70&fm=jpg"
+heroImageAlt: "a bunch of blue wires connected to each other"
+heroCredit:
+  name: "Scott Rodgerson"
+  profile: "https://unsplash.com/@scottrodgerson?utm_source=surajkr_dev&utm_medium=referral"
+  photo: "https://unsplash.com/photos/a-bunch-of-blue-wires-connected-to-each-other-PSpf_XgOM5w?utm_source=surajkr_dev&utm_medium=referral"
 tags:
   - "networking"
 ---

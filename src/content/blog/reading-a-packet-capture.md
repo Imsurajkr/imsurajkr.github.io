@@ -2,6 +2,12 @@
 title: "Finding Out What Your Machine Is Talking To"
 description: "Taking a capture with tcpdump, then answering the only question that usually matters: which hosts were talking, how much moved, and which connections never completed."
 pubDate: 2026-08-12
+heroImage: "https://images.unsplash.com/photo-1680992046626-418f7e910589?ixid=M3wxMDI2MzIyfDB8MXxzZWFyY2h8MXx8c2VydmVyJTIwcm9vbSUyMG5ldHdvcmslMjByYWNrfGVufDF8MHx8fDE3ODY1Mjg3NzB8MA&ixlib=rb-4.1.0&w=1200&h=630&fit=crop&crop=entropy&q=70&fm=jpg"
+heroImageAlt: "a rack of electronic equipment in a dark room"
+heroCredit:
+  name: "Tyler"
+  profile: "https://unsplash.com/@tylergm?utm_source=surajkr_dev&utm_medium=referral"
+  photo: "https://unsplash.com/photos/a-rack-of-electronic-equipment-in-a-dark-room-OnI_TNcIv9U?utm_source=surajkr_dev&utm_medium=referral"
 tags:
   - "networking"
   - "security"

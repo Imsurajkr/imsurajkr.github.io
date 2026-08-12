@@ -2,6 +2,12 @@
 title: "What a Traceroute Actually Tells You"
 description: "Three stars in the middle of a trace mean nothing. A slow hop is usually not the slow hop. Reading a traceroute for what it says, rather than what it appears to say."
 pubDate: 2026-08-12
+heroImage: "https://images.unsplash.com/photo-1606814540563-5c02d62fd409?ixid=M3wxMDI2MzIyfDB8MXxzZWFyY2h8NHx8ZmliZXIlMjBvcHRpYyUyMG5ldHdvcmslMjBjYWJsZXMlMjBkYXJrfGVufDF8MHx8fDE3ODY1Mjg3Njl8MA&ixlib=rb-4.1.0&w=1200&h=630&fit=crop&crop=entropy&q=70&fm=jpg"
+heroImageAlt: "blue and white light in dark room"
+heroCredit:
+  name: "Compare Fibre"
+  profile: "https://unsplash.com/@comparefibre?utm_source=surajkr_dev&utm_medium=referral"
+  photo: "https://unsplash.com/photos/blue-and-white-light-in-dark-room-INNsF0Zz_kQ?utm_source=surajkr_dev&utm_medium=referral"
 tags:
   - "networking"
 ---
