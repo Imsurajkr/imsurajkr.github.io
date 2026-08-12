@@ -1,0 +1,136 @@
+---
+import { site } from '../data/site';
+
+/**
+ * Google Analytics 4, gated behind consent.
+ *
+ * gtag.js is not loaded at all until a visitor opts in, so anyone who ignores
+ * or dismisses the notice is never given a cookie and never contacts Google.
+ * That is stricter than Consent Mode's cookieless pings, and it is the only
+ * arrangement that matches what the privacy policy is able to promise.
+ *
+ * With no measurement ID configured this component renders nothing whatsoever
+ * — no banner, no script, no markup.
+ */
+const id = site.googleAnalyticsId;
+---
+
+{
+  id && (
+    <>
+      <div
+        id="consent"
+        class="consent no-print"
+        role="dialog"
+        aria-live="polite"
+        aria-label="Analytics consent"
+        hidden
+      >
+        <p class="consent__text">
+          I would like to count visits with Google Analytics, which sets cookies. The tools
+          themselves never send your data anywhere either way. <a href="/privacy">What is collected</a>.
+        </p>
+        <div class="consent__actions">
+          <button type="button" class="btn btn--sm" id="consent-no">Decline</button>
+          <button type="button" class="btn btn--sm btn--primary" id="consent-yes">Allow</button>
+        </div>
+      </div>
+
+      <script is:inline define:vars={{ id }}>
+        (function () {
+          var KEY = 'analytics-consent';
+          var banner = document.getElementById('consent');
+
+          function load() {
+            if (window.__gaLoaded) return;
+            window.__gaLoaded = true;
+
+            var s = document.createElement('script');
+            s.async = true;
+            s.src = 'https://www.googletagmanager.com/gtag/js?id=' + id;
+            document.head.appendChild(s);
+
+            window.dataLayer = window.dataLayer || [];
+            function gtag() {
+              window.dataLayer.push(arguments);
+            }
+            window.gtag = gtag;
+            gtag('js', new Date());
+            // IP anonymisation is the default in GA4; being explicit documents intent.
+            gtag('config', id, { anonymize_ip: true });
+          }
+
+          function decide(value) {
+            try {
+              localStorage.setItem(KEY, value);
+            } catch (e) {
+              /* private mode — the choice simply will not persist */
+            }
+            if (banner) banner.hidden = true;
+            if (value === 'granted') load();
+          }
+
+          var stored = null;
+          try {
+            stored = localStorage.getItem(KEY);
+          } catch (e) {
+            /* private mode — treat as undecided */
+          }
+
+          if (stored === 'granted') load();
+          else if (stored !== 'denied' && banner) banner.hidden = false;
+
+          document.getElementById('consent-yes')?.addEventListener('click', function () {
+            decide('granted');
+          });
+          document.getElementById('consent-no')?.addEventListener('click', function () {
+            decide('denied');
+          });
+        })();
+      </script>
+
+      <style>
+        .consent {
+          position: fixed;
+          left: 1rem;
+          right: 1rem;
+          bottom: 1rem;
+          z-index: 60;
+          margin-inline: auto;
+          max-width: 34rem;
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          gap: 0.75rem 1rem;
+          padding: 0.9rem 1rem;
+          border: 1px solid var(--line-2);
+          border-radius: var(--r);
+          background: var(--bg-1);
+          box-shadow: 0 8px 30px rgb(0 0 0 / 0.25);
+        }
+
+        .consent[hidden] {
+          display: none;
+        }
+
+        .consent__text {
+          flex: 1 1 16rem;
+          font-size: 0.8rem;
+          line-height: 1.5;
+          color: var(--fg-2);
+          margin: 0;
+        }
+
+        .consent__text a {
+          color: var(--signal);
+        }
+
+        .consent__actions {
+          display: flex;
+          gap: 0.4rem;
+          margin-left: auto;
+        }
+      </style>
+    </>
+  )
+}

@@ -4,8 +4,18 @@ import PageHeader from '../components/PageHeader.astro';
 import { site } from '../data/site';
 
 const title = 'Privacy Policy';
-const description =
-  'Privacy policy for surajkr.dev — what this site does and does not collect. No analytics, no advertising, no tracking cookies; the DevOps tools run entirely in your browser.';
+
+/**
+ * Whether analytics is actually switched on, read from the same config the
+ * script tag reads. Every claim below keys off this, so the policy cannot drift
+ * out of step with what the site really does — the failure mode being a page
+ * that promises no tracking while quietly loading a tracker.
+ */
+const analytics = Boolean(site.googleAnalyticsId);
+
+const description = analytics
+  ? 'Privacy policy for surajkr.dev — what this site collects. Google Analytics only after you opt in, no advertising, no data sold; the DevOps tools run entirely in your browser.'
+  : 'Privacy policy for surajkr.dev — what this site does and does not collect. No analytics, no advertising, no tracking cookies; the DevOps tools run entirely in your browser.';
 
 const effectiveDate = '12 August 2026';
 
@@ -24,7 +34,11 @@ const jsonLd = {
   <PageHeader
     eyebrow="Legal"
     title="Privacy Policy"
-    lead="The short version: this is a static personal site. It has no accounts, no advertising, no analytics and no tracking cookies, and the tools never send your data anywhere."
+    lead={
+      analytics
+        ? 'The short version: this is a static personal site with no accounts and no advertising. Google Analytics runs only if you allow it, and the tools never send your data anywhere regardless.'
+        : 'The short version: this is a static personal site. It has no accounts, no advertising, no analytics and no tracking cookies, and the tools never send your data anywhere.'
+    }
   >
     <p class="dim updated">Effective {effectiveDate}</p>
   </PageHeader>
@@ -35,12 +49,25 @@ const jsonLd = {
         <div class="summary card">
           <h2 class="summary__title">At a glance</h2>
           <ul class="summary__list">
-            <li><strong>No analytics</strong> — no Google Analytics, no pixels, no fingerprinting.</li>
+            {
+              analytics ? (
+                <li>
+                  <strong>Analytics only if you allow it.</strong> Google Analytics is not loaded at
+                  all unless you press Allow, so declining means no analytics cookies and no request
+                  to Google.
+                </li>
+              ) : (
+                <li>
+                  <strong>No analytics</strong> — no Google Analytics, no pixels, no fingerprinting.
+                </li>
+              )
+            }
             <li><strong>No advertising</strong> and no data is sold or shared with brokers.</li>
             <li><strong>No accounts</strong>, logins, or newsletters.</li>
             <li>
-              <strong>No tracking cookies.</strong> One item of <code>localStorage</code> stores your
-              light/dark theme choice, and never leaves your device.
+              <strong>No fingerprinting, and nothing sold.</strong> A couple of items of
+              <code>localStorage</code> remember your theme and your analytics choice, and never
+              leave your device.
             </li>
             <li>
               <strong>The tools run entirely in your browser.</strong> Anything you paste into the
@@ -59,8 +86,11 @@ const jsonLd = {
 
         <h2>What this site stores on your device</h2>
         <p>
-          This site does not use cookies. It stores exactly one value in your browser's
-          <code>localStorage</code>:
+          {
+            analytics
+              ? 'The site itself sets no cookies. It stores these values in your browser’s localStorage, and Google Analytics sets cookies of its own only once you have allowed it:'
+              : 'This site does not use cookies. It stores exactly one value in your browser’s localStorage:'
+          }
         </p>
         <div class="scroll-x">
           <table>
@@ -77,14 +107,74 @@ const jsonLd = {
                 <td>Remembers whether you chose the light or dark theme.</td>
                 <td>Until you clear your browser storage.</td>
               </tr>
+              {
+                analytics && (
+                  <>
+                    <tr>
+                      <td>
+                        <code>analytics-consent</code>
+                      </td>
+                      <td>Remembers whether you allowed or declined analytics, so you are asked once.</td>
+                      <td>Until you clear your browser storage.</td>
+                    </tr>
+                    <tr>
+                      <td>
+                        <code>_ga</code>, <code>_ga_*</code>
+                      </td>
+                      <td>
+                        Google Analytics cookies that count a returning browser as one visitor. Set
+                        by Google, and only after you press Allow.
+                      </td>
+                      <td>Up to 2 years, or until you clear your cookies.</td>
+                    </tr>
+                  </>
+                )
+              }
             </tbody>
           </table>
         </div>
         <p>
-          This value is read and written only by your own browser. It is not transmitted to me or to
-          anyone else. Clearing your site data removes it, and the site falls back to your operating
-          system's colour preference.
+          The <code>localStorage</code> values are read and written only by your own browser. They
+          are not transmitted to me or to anyone else. Clearing your site data removes them, and the
+          site falls back to your operating system's colour preference.
         </p>
+
+        {
+          analytics && (
+            <>
+              <h2>Analytics</h2>
+              <p>
+                This site uses Google Analytics 4 to count visits and see which pages and tools
+                people actually use. It is switched off by default: the Google script is not
+                downloaded, and no analytics cookie is set, unless you press <strong>Allow</strong>
+                on the notice. Declining, or simply ignoring it, means no contact with Google at all.
+              </p>
+              <p>
+                If you do allow it, Google receives the pages you visit, an approximate location
+                derived from a truncated IP address, and general device and browser information. It
+                does not receive your name or your email, and I have not enabled advertising
+                features, Google Signals or data sharing with other Google products. Google is the
+                data processor for this and acts under its own
+                <a href="https://policies.google.com/privacy" rel="noopener nofollow">privacy policy</a>.
+              </p>
+              <p>
+                <strong>Changing your mind</strong> is a matter of clearing this site's data in your
+                browser, which removes the stored choice and brings the notice back. Browser
+                do-not-track and the
+                <a
+                  href="https://tools.google.com/dlpage/gaoptout"
+                  rel="noopener nofollow">Google Analytics opt-out add-on</a
+                > are both honoured, and blocking the script at the network level works exactly as you
+                would expect.
+              </p>
+              <p>
+                None of this applies to the tools themselves. What you paste into the subnet
+                calculator, the JWT decoder or the PCAP analyzer is never sent anywhere, with or
+                without analytics — the section below is unaffected by any of this.
+              </p>
+            </>
+          )
+        }
 
         <h2>The DevOps tools</h2>
         <p>

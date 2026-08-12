@@ -32,6 +32,14 @@ export const site = {
    * a redesign, so prefer that where the registrar allows it.
    */
   googleSiteVerification: '',
+  /**
+   * GA4 Measurement ID (`G-XXXXXXXXXX`), from Admin → Data streams → the web
+   * stream. This is NOT the property ID from the analytics.google.com URL —
+   * that one identifies the property to the Data API, and the two are not
+   * interchangeable. Empty means no banner and no gtag.js: the site sets no
+   * cookies at all, which is what the privacy policy describes.
+   */
+  googleAnalyticsId: '',
   author: {
     name: 'Suraj Kumar',
     email: 'surajkumar.devp@gmail.com',
