@@ -23,19 +23,7 @@ const collectors = [
     verify: `echo "${hash(sh)}  netlens.sh" | sha256sum -c`,
     run: 'bash netlens.sh',
     privileged: 'Run with sudo to include firewall and NAT rules.',
-    needs: 'Uses iproute2 (ip, ss) and /proc.',
-  },
-  {
-    id: 'macos',
-    label: 'macOS',
-    file: 'netlens.sh',
-    sha256: hash(sh),
-    lines: sh.toString().split('\n').length,
-    get: 'curl -fsSLO https://surajkr.dev/netlens.sh && less netlens.sh',
-    verify: `echo "${hash(sh)}  netlens.sh" | shasum -a 256 -c`,
-    run: 'bash netlens.sh',
-    privileged: 'Run with sudo to include pf rules and sockets owned by other users.',
-    needs: 'Same script — it detects Darwin and uses ifconfig, netstat, arp and lsof instead.',
+    needs: 'Uses iproute2 (ip, ss) and /proc. macOS is not supported — the BSD userland is different enough that shipping it untested would be worse than not shipping it.',
   },
   {
     id: 'windows',
@@ -1348,7 +1336,7 @@ const collectors = [
   }
   if (!preferred) {
     const ua = navigator.userAgent;
-    preferred = /Win/i.test(ua) ? 'windows' : /Mac/i.test(ua) ? 'macos' : 'linux';
+    preferred = /Win/i.test(ua) ? 'windows' : 'linux';
   }
   if (platforms.some((b) => b.dataset.platform === preferred)) showPlatform(preferred);
 

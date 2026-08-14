@@ -7,6 +7,8 @@
 # a JSON file. Nothing is uploaded, nothing is changed, and no network requests
 # are made: every fact comes from a local command or from /proc.
 #
+# Linux only. Windows has its own collector, netlens.ps1.
+#
 # Read this script before running it. That is the point of shipping it as a
 # file rather than something you pipe into a shell.
 #
@@ -46,10 +48,27 @@ is_root() { [ "$(id -u)" -eq 0 ]; }
 # branches on this once rather than probing per command.
 case "$(uname -s 2>/dev/null)" in
   Linux) OS_FAMILY="linux" ;;
-  Darwin) OS_FAMILY="macos" ;;
+  Darwin) OS_FAMILY="macos" ;;   # detected, but not supported -- see below
   *BSD) OS_FAMILY="bsd" ;;
   *) OS_FAMILY="unknown" ;;
 esac
+
+# macOS uses a BSD userland this collector has not been tested against, and a
+# report that silently omits most of the machine is worse than no report.
+if [ "$OS_FAMILY" = "macos" ]; then
+  cat >&2 <<'UNSUPPORTED'
+
+  Network Lens does not support macOS yet.
+
+  This collector reads iproute2 (ip, ss) and /proc, neither of which exists on
+  macOS. Rather than emit a report that is mostly empty without saying so, it
+  stops here.
+
+  Linux and Windows are supported: https://surajkr.dev/tools/network-lens
+
+UNSUPPORTED
+  exit 3
+fi
 
 # JSON string escaping. Control characters are dropped rather than encoded —
 # nothing collected here should contain them, and a mangled report is worse
@@ -136,10 +155,6 @@ have lsof && CAP_LSOF=1
 have ps && CAP_PS=1
 have who && CAP_WHO=1
 have arp && CAP_ARP=1
-CAP_IFCONFIG=0; CAP_PFCTL=0; CAP_SCUTIL=0
-have ifconfig && CAP_IFCONFIG=1
-have pfctl && CAP_PFCTL=1
-have scutil && CAP_SCUTIL=1
 
 NOTES=""
 note() { NOTES="${NOTES}$1"$'\n'; }
@@ -150,10 +165,6 @@ if [ "$OS_FAMILY" = "linux" ]; then
   [ $CAP_SS -eq 1 ] || [ $CAP_NETSTAT -eq 1 ] || note "Neither ss nor netstat is installed: listeners and connections could not be read."
   [ $CAP_CONNTRACK -eq 1 ] || note "conntrack not installed: active NAT translations were not enumerated."
   [ $CAP_NFT -eq 1 ] || [ $CAP_IPTABLES -eq 1 ] || note "Neither nft nor iptables is installed: firewall and NAT rules were not inspected."
-elif [ "$OS_FAMILY" = "macos" ]; then
-  [ $CAP_LSOF -eq 1 ] || note "lsof not installed: listening sockets and connections cannot be attributed to processes on macOS."
-  is_root || note "macOS attributes sockets to processes only for your own user without root, so other users' services may be missing."
-  [ $CAP_PFCTL -eq 1 ] || note "pfctl not available: the packet filter was not inspected."
 else
   note "Unrecognised platform ($(uname -s 2>/dev/null)): only the fields this system happens to support were collected."
 fi
@@ -165,16 +176,7 @@ collect_host() {
   hostname=$(hostname 2>/dev/null || cat /proc/sys/kernel/hostname 2>/dev/null || echo unknown)
   fqdn=$(hostname -f 2>/dev/null || printf '%s' "$hostname")
 
-  if [ "$OS_FAMILY" = "macos" ]; then
-    os="$(sw_vers -productName 2>/dev/null) $(sw_vers -productVersion 2>/dev/null)"
-    # kern.boottime looks like "{ sec = 1699... }"; uptime is now minus that.
-    local boot now
-    boot=$(sysctl -n kern.boottime 2>/dev/null | sed -n 's/.*sec = \([0-9]*\).*/\1/p')
-    now=$(date +%s 2>/dev/null)
-    [ -n "$boot" ] && [ -n "$now" ] && uptime=$((now - boot)) || uptime=0
-    virt="none"
-    sysctl -n machdep.cpu.features 2>/dev/null | grep -qi VMM && virt="virtualised"
-  elif [ -r /etc/os-release ]; then
+  if [ -r /etc/os-release ]; then
     os=$(. /etc/os-release 2>/dev/null && printf '%s' "${PRETTY_NAME:-${NAME:-unknown}}")
   else
     os="$(uname -s 2>/dev/null || echo unknown)"
@@ -210,70 +212,10 @@ collect_host() {
 
 # ----------------------------------------------------------------- interfaces
 
-# BSD ifconfig blocks look like:
-#   en0: flags=8863<UP,BROADCAST,...> mtu 1500
-#           ether 3c:22:fb:...
-#           inet 10.0.1.23 netmask 0xffffff00 broadcast 10.0.1.255
-#           status: active
-collect_interfaces_macos() {
-  local block name flags mtu mac state
-  while IFS= read -r block; do
-    case "$block" in
-      [a-zA-Z]*:*flags=*)
-        # Close the previous interface before starting the next.
-        [ -n "${name:-}" ] && emit "]}"
-        name=${block%%:*}
-        flags=$(printf '%s' "$block" | sed -n 's/.*<\([^>]*\)>.*/\1/p')
-        mtu=$(printf '%s' "$block" | sed -n 's/.*mtu \([0-9]*\).*/\1/p')
-        case "$flags" in *UP*) state="UP" ;; *) state="DOWN" ;; esac
-        mac=""
-        sep
-        emit "{\"name\":\"$(js "$name")\",\"state\":\"$state\",\"mtu\":${mtu:-0},"
-        emit "\"mac\":\"\",\"flags\":\"$(js "$flags")\",\"addresses\":["
-        AFIRST=1
-        ;;
-      *ether*)
-        mac=$(printf '%s' "$block" | awk '{print $2}')
-        ;;
-      *inet6\ *)
-        local a6 p6
-        a6=$(printf '%s' "$block" | awk '{print $2}'); a6=${a6%%\%*}
-        p6=$(printf '%s' "$block" | sed -n 's/.*prefixlen \([0-9]*\).*/\1/p')
-        [ "${AFIRST:-1}" -eq 1 ] && AFIRST=0 || emit ","
-        emit "{\"address\":\"$(js "$(r_ip "$a6")")\",\"prefix\":${p6:-128},"
-        emit "\"family\":\"inet6\",\"scope\":\"global\"}"
-        ;;
-      *inet\ *)
-        local a4 hexmask bits
-        a4=$(printf '%s' "$block" | awk '{print $2}')
-        hexmask=$(printf '%s' "$block" | sed -n 's/.*netmask \(0x[0-9a-f]*\).*/\1/p')
-        # netmask arrives as 0xffffff00; count the bits to get a prefix length.
-        bits=32
-        if [ -n "$hexmask" ]; then
-          bits=$(printf '%s' "$hexmask" | tr 'a-f' 'A-F' | sed 's/^0X//' | \
-            awk '{n=0; for(i=1;i<=length($0);i++){c=substr($0,i,1);
-                  v=index("0123456789ABCDEF",c)-1;
-                  while(v>0){n+=v%2; v=int(v/2)}} print n}')
-        fi
-        [ "${AFIRST:-1}" -eq 1 ] && AFIRST=0 || emit ","
-        emit "{\"address\":\"$(js "$(r_ip "$a4")")\",\"prefix\":${bits:-32},"
-        emit "\"family\":\"inet\",\"scope\":\"global\"}"
-        ;;
-    esac
-  done <<EOF
-$(ifconfig -a 2>/dev/null)
-EOF
-  [ -n "${name:-}" ] && emit "]}"
-}
 
 collect_interfaces() {
   emit "\"interfaces\":["
   open_list
-  if [ "$OS_FAMILY" = "macos" ] || { [ $CAP_IP -eq 0 ] && [ $CAP_IFCONFIG -eq 1 ]; }; then
-    collect_interfaces_macos
-    emit "]"
-    return
-  fi
   [ $CAP_IP -eq 1 ] || { emit "]"; return; }
 
   local line name state mac mtu flags
@@ -316,33 +258,10 @@ EOF
 
 # --------------------------------------------------------------------- routes
 
-# netstat -rn on BSD prints: Destination Gateway Flags Netif Expire
-collect_routes_macos() {
-  local line dst gw dev
-  while IFS= read -r line; do
-    case "$line" in Routing*|Internet*|Destination*|"") continue ;; esac
-    dst=$(printf '%s' "$line" | awk '{print $1}')
-    gw=$(printf '%s' "$line" | awk '{print $2}')
-    dev=$(printf '%s' "$line" | awk '{print $4}')
-    [ -z "$dst" ] && continue
-    # A gateway that is a MAC address or "link#N" means directly connected.
-    case "$gw" in *:*:*|link#*) gw="" ;; esac
-    sep
-    emit "{\"destination\":\"$(js "$([ "$dst" = "default" ] && printf 'default' || r_ip "$dst")")\","
-    emit "\"via\":\"$(js "$([ -n "$gw" ] && r_ip "$gw")")\","
-    emit "\"device\":\"$(js "$dev")\",\"protocol\":\"\",\"metric\":0,"
-    emit "\"default\":$([ "$dst" = "default" ] && echo true || echo false)}"
-  done <<EOF
-$(netstat -rn -f inet 2>/dev/null)
-EOF
-}
 
 collect_routes() {
   emit "\"routes\":["
   open_list
-  if [ "$OS_FAMILY" = "macos" ]; then
-    collect_routes_macos; emit "]"; return
-  fi
   [ $CAP_IP -eq 1 ] || { emit "]"; return; }
 
   local line dst via dev proto metric base dst_out
@@ -386,26 +305,6 @@ collect_neighbors() {
   emit "\"neighbors\":["
   open_list
 
-  if [ "$OS_FAMILY" = "macos" ]; then
-    # arp -an prints: ? (10.0.1.1) at 3c:22:fb:1:2:3 on en0 ifscope [ethernet]
-    local aline aaddr amac adev
-    while IFS= read -r aline; do
-      aaddr=$(printf '%s' "$aline" | sed -n 's/.*(\([0-9.]*\)).*/\1/p')
-      [ -z "$aaddr" ] && continue
-      amac=$(printf '%s' "$aline" | sed -n 's/.* at \([0-9a-f:]*\) .*/\1/p')
-      adev=$(printf '%s' "$aline" | sed -n 's/.* on \([a-z0-9]*\).*/\1/p')
-      sep
-      emit "{\"address\":\"$(js "$(r_ip "$aaddr")")\",\"device\":\"$(js "$adev")\","
-      # BSD arp does not report a neighbour state; incomplete entries show as
-      # "(incomplete)". Anything else has a resolved MAC, which is evidence.
-      emit "\"mac\":\"$(js "$amac")\",\"state\":\"$([ -n "$amac" ] && echo REACHABLE || echo INCOMPLETE)\"}"
-    done <<EOF
-$(arp -an 2>/dev/null)
-EOF
-    emit "]"
-    return
-  fi
-
   if [ $CAP_IP -eq 1 ]; then
     local line addr dev mac state
     while IFS= read -r line; do
@@ -445,64 +344,11 @@ addr_of() {
 }
 port_of() { printf '%s' "${1##*:}"; }
 
-# lsof -nP -iTCP -sTCP:LISTEN prints:
-#   nginx  1044 root  6u  IPv4 0x... 0t0 TCP *:80 (LISTEN)
-collect_listeners_macos() {
-  local line proc pid endpoint addr port scope proto
-  for proto in TCP UDP; do
-    while IFS= read -r line; do
-      case "$line" in COMMAND*|"") continue ;; esac
-      proc=$(printf '%s' "$line" | awk '{print $1}')
-      pid=$(printf '%s' "$line" | awk '{print $2}')
-      endpoint=$(printf '%s' "$line" | awk '{for(i=1;i<=NF;i++) if($i=="'"$proto"'") print $(i+1)}')
-      [ -z "$endpoint" ] && continue
-      addr=$(addr_of "$endpoint")
-      port=$(port_of "$endpoint")
-      case "$port" in ''|*[!0-9]*) continue ;; esac
-      case "$addr" in
-        '*'|0.0.0.0|'[::]'|'::') scope="all-interfaces" ;;
-        127.*|'::1') scope="loopback" ;;
-        *) scope="specific" ;;
-      esac
-      sep
-      emit "{\"protocol\":\"$(printf '%s' "$proto" | tr 'A-Z' 'a-z')\","
-      emit "\"address\":\"$(js "$addr")\",\"port\":$port,"
-      emit "\"scope\":\"$scope\",\"process\":\"$(js "$proc")\",\"pid\":${pid:-0}}"
-    done <<EOF
-$([ "$proto" = "TCP" ] && lsof -nP -iTCP -sTCP:LISTEN 2>/dev/null || lsof -nP -iUDP 2>/dev/null)
-EOF
-  done
-}
 
-collect_connections_macos() {
-  local line proc pid pair local_ep remote_ep lport rport
-  while IFS= read -r line; do
-    case "$line" in COMMAND*|"") continue ;; esac
-    proc=$(printf '%s' "$line" | awk '{print $1}')
-    pid=$(printf '%s' "$line" | awk '{print $2}')
-    pair=$(printf '%s' "$line" | awk '{for(i=1;i<=NF;i++) if($i=="TCP") print $(i+1)}')
-    case "$pair" in *-\>*) : ;; *) continue ;; esac
-    local_ep=${pair%%->*}
-    remote_ep=${pair##*->}
-    lport=$(port_of "$local_ep"); case "$lport" in ''|*[!0-9]*) lport=0 ;; esac
-    rport=$(port_of "$remote_ep"); case "$rport" in ''|*[!0-9]*) rport=0 ;; esac
-    sep
-    emit "{\"state\":\"ESTAB\","
-    emit "\"local_address\":\"$(js "$(r_ip "$(addr_of "$local_ep")")")\",\"local_port\":$lport,"
-    emit "\"remote_address\":\"$(js "$(r_ip "$(addr_of "$remote_ep")")")\",\"remote_port\":$rport,"
-    emit "\"process\":\"$(js "$proc")\",\"pid\":${pid:-0}}"
-  done <<EOF
-$(lsof -nP -iTCP -sTCP:ESTABLISHED 2>/dev/null)
-EOF
-}
 
 collect_listeners() {
   emit "\"listeners\":["
   open_list
-  if [ "$OS_FAMILY" = "macos" ]; then
-    [ $CAP_LSOF -eq 1 ] && collect_listeners_macos
-    emit "]"; return
-  fi
   [ $CAP_SS -eq 1 ] || { emit "]"; return; }
 
   local proto line local_ep addr port proc pid scope
@@ -543,10 +389,6 @@ EOF
 collect_connections() {
   emit "\"connections\":["
   open_list
-  if [ "$OS_FAMILY" = "macos" ]; then
-    [ $CAP_LSOF -eq 1 ] && collect_connections_macos
-    emit "]"; return
-  fi
   [ $CAP_SS -eq 1 ] || { emit "]"; return; }
 
   local line local_ep remote_ep state proc pid lport rport
@@ -609,24 +451,8 @@ collect_firewall() {
     [ $CAP_NFT -eq 1 ] || [ $CAP_IPTABLES -eq 1 ] && backend="present-but-unreadable"
   fi
 
-  if [ "$OS_FAMILY" = "macos" ]; then
-    backend="pf"
-    if [ $CAP_PFCTL -eq 1 ] && is_root; then
-      snat=$(pfctl -s nat 2>/dev/null | grep -c '^nat')
-      dnat=$(pfctl -s nat 2>/dev/null | grep -c '^rdr')
-      filter=$(pfctl -s rules 2>/dev/null | grep -c .)
-      readable=1
-    else
-      readable=0
-    fi
-  fi
-
   local forwarding
-  if [ "$OS_FAMILY" = "macos" ]; then
-    forwarding=$(sysctl -n net.inet.ip.forwarding 2>/dev/null || echo 0)
-  else
-    forwarding=$(cat /proc/sys/net/ipv4/ip_forward 2>/dev/null || echo 0)
-  fi
+  forwarding=$(cat /proc/sys/net/ipv4/ip_forward 2>/dev/null || echo 0)
 
   emit "\"firewall\":{"
   emit "\"backend\":\"$(js "$backend")\","
@@ -671,15 +497,7 @@ EOF
 collect_dns() {
   emit "\"dns\":{\"servers\":["
   local first=1 s
-  if [ "$OS_FAMILY" = "macos" ] && have scutil; then
-    while IFS= read -r s; do
-      [ -z "$s" ] && continue
-      [ $first -eq 1 ] && first=0 || emit ","
-      emit "\"$(js "$(r_ip "$s")")\""
-    done <<EOF
-$(scutil --dns 2>/dev/null | sed -n 's/.*nameserver\[[0-9]*\] : \(.*\)/\1/p' | sort -u)
-EOF
-  elif [ -r /etc/resolv.conf ]; then
+  if [ -r /etc/resolv.conf ]; then
     while read -r _ s _; do
       [ -z "$s" ] && continue
       [ $first -eq 1 ] && first=0 || emit ","
@@ -712,8 +530,7 @@ collect_capabilities() {
   emit "\"lsof\":$([ $CAP_LSOF -eq 1 ] && echo true || echo false),"
   emit "\"ps\":$([ $CAP_PS -eq 1 ] && echo true || echo false),"
   emit "\"who\":$([ $CAP_WHO -eq 1 ] && echo true || echo false),"
-  emit "\"ifconfig\":$([ $CAP_IFCONFIG -eq 1 ] && echo true || echo false),"
-  emit "\"pfctl\":$([ $CAP_PFCTL -eq 1 ] && echo true || echo false)"
+  emit "\"arp\":$([ $CAP_ARP -eq 1 ] && echo true || echo false)"
   emit "}"
 }
 
