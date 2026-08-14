@@ -74,6 +74,9 @@
   --fg-4: #6b7f92;
 
   /* Semantic accents — each means one thing */
+  /* The logo mark only. Kept out of --signal so recolouring the brand does
+     not move every link, focus ring and active state with it. */
+  --brand-mark: #7ce817;
   --signal: #5ea9f0; /* interaction: links, focus, active state */
   --signal-dim: #2f6fae;
   --signal-soft: rgba(94, 169, 240, 0.11);
@@ -105,6 +108,7 @@
     --fg-3: #55697c;
     --fg-4: #64778a;
 
+    --brand-mark: #3d8b0f;
     --signal: #1668c4;
     --signal-dim: #7aa9dc;
     --signal-soft: rgba(22, 104, 196, 0.09);
@@ -136,6 +140,7 @@
   --fg-3: #55697c;
   --fg-4: #64778a;
 
+  --brand-mark: #3d8b0f;
   --signal: #1668c4;
   --signal-dim: #7aa9dc;
   --signal-soft: rgba(22, 104, 196, 0.09);
