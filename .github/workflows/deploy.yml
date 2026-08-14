@@ -52,6 +52,11 @@ jobs:
           test -f dist/sitemap-index.xml
           test -f dist/rss.xml
           test -f dist/robots.txt
+          test -f dist/llms.txt
+          # Google falls back to a generic globe in search results without an
+          # icon at the root path, so /favicon.ico must ship.
+          test -f dist/favicon.ico
+          test -f dist/apple-touch-icon.png
           # Blog permalinks inherited from the Jekyll site must keep resolving.
           for slug in monitoring nat-gateway unity-docker capistrano portainer \
                       vim-editor hping3 github-branching \

@@ -3,3 +3,7 @@ Allow: /
 
 # Static personal site — nothing here is private, everything is crawlable.
 Sitemap: https://surajkr.dev/sitemap-index.xml
+
+# A map of this site for language models and AI search engines.
+# https://llmstxt.org
+LLM-Content: https://surajkr.dev/llms.txt

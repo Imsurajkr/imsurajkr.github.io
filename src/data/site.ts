@@ -1,10 +1,10 @@
 export const site = {
   url: 'https://surajkr.dev',
-  title: 'Suraj Kumar — Senior Platform & DevOps Engineer',
+  title: 'Suraj Kumar — Senior Platform & DevOps Engineer | AWS & K8s',
   shortTitle: 'Suraj Kumar',
   tagline: 'Senior Platform & DevOps Engineer',
   description:
-    'Suraj Kumar — Senior Platform & DevOps Engineer with 7+ years across AWS, GCP, Azure and Kubernetes. Platform engineering, Terraform, DevSecOps, CI/CD, and free browser-based DevOps tools.',
+    'Senior Platform & DevOps Engineer with 7+ years across AWS, GCP, Azure and Kubernetes. Plus free browser-only DevOps tools and troubleshooting playbooks.',
   keywords: [
     'Suraj Kumar',
     'DevOps Engineer',
