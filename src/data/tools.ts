@@ -73,6 +73,24 @@ export const tools: Tool[] = [
     },
   },
   {
+    slug: 'network-lens',
+    name: 'Network Lens',
+    tagline: 'See what your Linux machine knows about its network',
+    description:
+      'Run one read-only Bash script on a Linux host and drop the JSON it produces here. Network Lens turns it into a picture: how the machine reaches the internet, what it is listening on, who it is talking to, and what the collector could not see. The report is read in this tab and never uploaded.',
+    seo: 'Free Linux network report viewer — run a read-only Bash collector, then visualise interfaces, routes, listening ports, established connections, NAT and sessions in your browser. Nothing is uploaded.',
+    category: 'Networking',
+    icon: 'lens',
+    keywords: [
+      'linux network report',
+      'what ports am i listening on',
+      'ss output visualiser',
+      'network topology from a host',
+      'exposed listeners',
+      'linux network audit',
+    ],
+  },
+  {
     slug: 'pcap-analyzer',
     name: 'PCAP Conversation Analyzer',
     tagline: 'See which hosts are talking, and about what',

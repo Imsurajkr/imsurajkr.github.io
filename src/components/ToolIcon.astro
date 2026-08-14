@@ -39,6 +39,15 @@ const { name, size = '1.25rem' } = Astro.props;
     )
   }
   {
+    name === 'lens' && (
+      <>
+        <circle cx="11" cy="11" r="6.5" />
+        <path d="M11 7.5v7M7.5 11h7" />
+        <path d="m16 16 5 5" />
+      </>
+    )
+  }
+  {
     name === 'graph' && (
       <>
         <circle cx="5" cy="6" r="2.2" />

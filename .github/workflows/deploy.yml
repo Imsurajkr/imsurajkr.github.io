@@ -64,6 +64,10 @@ jobs:
                       base64 jwt-decoder openssl-toolkit yaml-json cron-expression generators; do
             test -f "dist/tools/${tool}.html" || { echo "::error::missing /tools/${tool}"; exit 1; }
           done
+          # The Network Lens collectors must ship, or the tool page links to nothing.
+          test -f dist/netlens.sh
+          test -f dist/netlens.ps1
+          test -f dist/tools/network-lens.html
           # Incident Room: the hub, the two references, and every playbook.
           test -f dist/incident-room.html
           for page in atlas file-investigator high-cpu memory-pressure disk-full \
