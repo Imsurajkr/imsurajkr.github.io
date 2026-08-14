@@ -1,5 +1,5 @@
 <#
-    Network Lens — collector for Windows
+    Network Lens -- collector for Windows
     https://surajkr.dev/tools/network-lens
 
     Reads what this machine already knows about its own network and writes it
@@ -58,7 +58,7 @@ function Get-Alias-For($raw, $prefix) {
     return $val
 }
 
-# RFC 1918, CGNAT, loopback and link-local stay legible under redaction — they
+# RFC 1918, CGNAT, loopback and link-local stay legible under redaction -- they
 # are not identifying, and hiding them would destroy the topology.
 function Test-PrivateIp($ip) {
     if ([string]::IsNullOrEmpty($ip)) { return $true }
@@ -77,7 +77,7 @@ function Protect-Ip($v) {
     if ($Redact -and -not (Test-PrivateIp $v)) { Get-Alias-For $v 'public' } else { $v }
 }
 
-# Resolve a PID to a process name once, then reuse — Get-Process per socket is
+# Resolve a PID to a process name once, then reuse -- Get-Process per socket is
 # slow on a machine with hundreds of connections.
 $script:ProcCache = @{}
 function Get-ProcName($processId) {
@@ -146,7 +146,7 @@ function Get-HostFacts {
 
 function Get-Interfaces {
     $out = New-Object System.Collections.Generic.List[object]
-    if (-not $hasNetAdapter) { return $out }
+    if (-not $hasNetAdapter) { return ,$out }
 
     foreach ($nic in Get-NetAdapter -IncludeHidden -ErrorAction SilentlyContinue) {
         $addrs = New-Object System.Collections.Generic.List[object]
@@ -168,14 +168,14 @@ function Get-Interfaces {
             addresses = $addrs
         }) | Out-Null
     }
-    return $out
+    return ,$out
 }
 
 # --------------------------------------------------------------------- routes
 
 function Get-Routes {
     $out = New-Object System.Collections.Generic.List[object]
-    if (-not (Test-Command 'Get-NetRoute')) { return $out }
+    if (-not (Test-Command 'Get-NetRoute')) { return ,$out }
 
     foreach ($r in Get-NetRoute -ErrorAction SilentlyContinue) {
         $isDefault = ($r.DestinationPrefix -eq '0.0.0.0/0' -or $r.DestinationPrefix -eq '::/0')
@@ -200,14 +200,14 @@ function Get-Routes {
             default     = $isDefault
         }) | Out-Null
     }
-    return $out
+    return ,$out
 }
 
 # ------------------------------------------------------------------ neighbors
 
 function Get-Neighbors {
     $out = New-Object System.Collections.Generic.List[object]
-    if (-not (Test-Command 'Get-NetNeighbor')) { return $out }
+    if (-not (Test-Command 'Get-NetNeighbor')) { return ,$out }
 
     foreach ($n in Get-NetNeighbor -ErrorAction SilentlyContinue |
                    Where-Object { $_.State -ne 'Permanent' -and $_.LinkLayerAddress }) {
@@ -230,14 +230,14 @@ function Get-Neighbors {
             state   = $state
         }) | Out-Null
     }
-    return $out
+    return ,$out
 }
 
 # ------------------------------------------------------- listeners/connections
 
 function Get-Listeners {
     $out = New-Object System.Collections.Generic.List[object]
-    if (-not $hasNetTCPIP) { return $out }
+    if (-not $hasNetTCPIP) { return ,$out }
 
     foreach ($l in Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue) {
         $addr = $l.LocalAddress
@@ -270,12 +270,12 @@ function Get-Listeners {
             }) | Out-Null
         }
     }
-    return $out
+    return ,$out
 }
 
 function Get-Connections {
     $out = New-Object System.Collections.Generic.List[object]
-    if (-not $hasNetTCPIP) { return $out }
+    if (-not $hasNetTCPIP) { return ,$out }
 
     foreach ($c in Get-NetTCPConnection -State Established -ErrorAction SilentlyContinue) {
         $out.Add([ordered]@{
@@ -288,7 +288,7 @@ function Get-Connections {
             pid            = [int]$c.OwningProcess
         }) | Out-Null
     }
-    return $out
+    return ,$out
 }
 
 # --------------------------------------------------------------- nat/firewall
@@ -357,7 +357,7 @@ function Get-Sessions {
             since = ''; remote = $false
         }) | Out-Null
     }
-    return $out
+    return ,$out
 }
 
 # ------------------------------------------------------------------------ dns
@@ -403,7 +403,7 @@ $report = [ordered]@{
     firewall    = Get-Firewall
     sessions    = Get-Sessions
     dns         = Get-Dns
-    notes       = $script:Notes
+    notes       = ,$script:Notes
 }
 
 $json = $report | ConvertTo-Json -Depth 8
@@ -414,9 +414,11 @@ if ($Stdout) {
 }
 
 try {
-    # UTF-8 without a BOM — a BOM makes JSON.parse fail in the browser.
+    # UTF-8 without a BOM -- a BOM makes JSON.parse fail in the browser.
+    $target = if ([System.IO.Path]::IsPathRooted($Out)) { $Out }
+              else { Join-Path (Get-Location).Path $Out }
     [System.IO.File]::WriteAllText(
-        (Join-Path (Get-Location) $Out), $json, (New-Object System.Text.UTF8Encoding($false)))
+        $target, $json, (New-Object System.Text.UTF8Encoding($false)))
 } catch {
     Write-Error "netlens: could not write to $Out"
     exit 2
@@ -424,10 +426,12 @@ try {
 
 $exposed = @($report.listeners | Where-Object { $_.scope -eq 'all-interfaces' }).Count
 Write-Host ""
-Write-Host "  Network Lens — report written to $Out"
+Write-Host "  Network Lens -- report written to $Out"
 if (-not $elevated) { Write-Host "  Not elevated, so firewall rules were not read." }
 Write-Host "  $exposed listener(s) bound to all interfaces."
 Write-Host ""
 Write-Host "  Open it at https://surajkr.dev/tools/network-lens"
 Write-Host "  Nothing was uploaded. The page reads the file in your browser."
 Write-Host ""
+
+exit 0

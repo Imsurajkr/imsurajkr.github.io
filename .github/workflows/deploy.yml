@@ -68,6 +68,16 @@ jobs:
           test -f dist/netlens.sh
           test -f dist/netlens.ps1
           test -f dist/tools/network-lens.html
+          # PowerShell 5.1 reads a BOM-less .ps1 as CP1252, where the UTF-8 bytes
+          # for an em dash end in U+201D -- which PowerShell accepts as a string
+          # delimiter. One non-ASCII character silently breaks the whole file, so
+          # keep it pure ASCII rather than relying on the reader's encoding.
+          if LC_ALL=C grep -qP '[^\x00-\x7F]' dist/netlens.ps1; then
+            echo "::error::netlens.ps1 contains non-ASCII bytes; PowerShell 5.1 will fail to parse it"
+            LC_ALL=C grep -nP '[^\x00-\x7F]' dist/netlens.ps1 | head
+            exit 1
+          fi
+          bash -n dist/netlens.sh
           # Incident Room: the hub, the two references, and every playbook.
           test -f dist/incident-room.html
           for page in atlas file-investigator high-cpu memory-pressure disk-full \
