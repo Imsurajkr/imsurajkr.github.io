@@ -344,6 +344,12 @@ const collectors = [
     gap: 0.9rem;
   }
 
+  /* An author-level `display` beats the user agent's `[hidden] { display: none }`,
+     so without this the non-selected platforms stay on screen. */
+  .steps[hidden] {
+    display: none;
+  }
+
   .step {
     display: grid;
     grid-template-columns: 1.5rem 1fr;
