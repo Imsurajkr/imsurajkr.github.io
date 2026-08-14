@@ -1,0 +1,21 @@
+# NOTE: GitHub Pages ignores this file entirely. It is a Cloudflare Pages and
+# Netlify convention, kept here so the rules are ready if this site ever moves
+# behind one of them. Nothing in it is in effect today — verify with
+# `curl -I https://surajkr.dev/` before assuming otherwise.
+#
+# There is deliberately no X-Robots-Tag here. A noindex on surajkr.dev would
+# remove this site from search entirely, and it cannot be used to stop
+# imsurajkr.github.io being crawled either — that host is served separately and
+# already issues a per-path 301 to surajkr.dev, which is what consolidates it.
+
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
+  Permissions-Policy: geolocation=(), microphone=(), camera=()
+
+/netlens.sh
+  Content-Type: text/plain; charset=utf-8
+
+/netlens.ps1
+  Content-Type: text/plain; charset=utf-8
