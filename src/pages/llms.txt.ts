@@ -47,6 +47,7 @@ ${posts.map((p) => `- [${p.data.title}](${site.url}/blog/${p.id}): ${p.data.desc
 ## About
 
 - [Resume](${site.url}/): experience, certifications and platform work.
+- [Résumé PDF](${site.url}/resume.pdf): the same thing as a one-page ATS-friendly PDF.
 - [About](${site.url}/about): background and how I work.
 - [Contact](${site.url}/contact): ${site.author.email}
 - [Privacy](${site.url}/privacy): what the site does and does not collect.
