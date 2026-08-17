@@ -1,5 +1,4 @@
 ---
-import ArchDiagram from './ArchDiagram.astro';
 import type { Project } from '../data/resume';
 
 export interface Props {
@@ -13,67 +12,30 @@ const num = String(index + 1).padStart(2, '0');
 
 <article class="cs marked" id={project.slug} data-reveal>
   <header class="cs__head">
-    <div class="cs__id">
-      <span class="cs__num">{num}</span>
-      <span class="cs__context mono-label">{project.context}</span>
-    </div>
-
+    <span class="cs__num" aria-hidden="true">{num}</span>
     <h3 class="cs__name">{project.name}</h3>
-    <p class="cs__thesis">{project.thesis}</p>
+    <p class="cs__context mono-label">{project.context}</p>
   </header>
 
-  <div class="cs__body">
-    <!-- Left column: the engineering narrative -->
-    <div class="cs__narrative">
-      <section class="cs__block">
-        <h4 class="cs__block-title">Problem</h4>
-        <p class="cs__text">{project.problem}</p>
-      </section>
-
-      <section class="cs__block">
-        <h4 class="cs__block-title">Engineering decisions</h4>
-        <ol class="decisions">
-          {
-            project.decisions.map((decision) => (
-              <li class="decision">
-                <h5 class="decision__title">{decision.title}</h5>
-                <p class="decision__body">{decision.body}</p>
-              </li>
-            ))
-          }
-        </ol>
-      </section>
-    </div>
-
-    <!-- Right column: the system view -->
-    <div class="cs__system">
-      <section class="cs__block">
-        <h4 class="cs__block-title">Architecture</h4>
-        <ArchDiagram layers={project.architecture} label={project.name} />
-      </section>
-
-      <section class="cs__block">
-        <h4 class="cs__block-title">Outcome</h4>
-        <dl class="outcomes">
-          {
-            project.outcomes.map((outcome) => (
-              <div class="outcome">
-                <dt class="outcome__value">{outcome.value}</dt>
-                <dd class="outcome__label">{outcome.label}</dd>
-              </div>
-            ))
-          }
-        </dl>
-      </section>
-
-      <section class="cs__block">
-        <h4 class="cs__block-title">Stack</h4>
-        <ul class="chips">
-          {project.stack.map((tech) => <li class="chip">{tech}</li>)}
-        </ul>
-      </section>
-    </div>
+  <div class="cs__story">
+    {project.story.map((para) => <p>{para}</p>)}
   </div>
+
+  <p class="cs__label">What changed</p>
+  <ul class="cs__changed">
+    {project.changed.map((item) => <li>{item}</li>)}
+  </ul>
+
+  {
+    project.gotWrong && (
+      <aside class="cs__wrong">
+        <p class="cs__wrong-label">What I got wrong</p>
+        <p>{project.gotWrong}</p>
+      </aside>
+    )
+  }
+
+  <p class="cs__stack"><span class="dim">Stack:</span> {project.stack}</p>
 </article>
 
 <style>
@@ -81,7 +43,7 @@ const num = String(index + 1).padStart(2, '0');
     background: var(--bg-1);
     border: 1px solid var(--line);
     border-radius: var(--r);
-    padding: clamp(1.25rem, 3vw, 2rem);
+    padding: clamp(1.35rem, 3vw, 2.25rem);
     transition: border-color 0.2s var(--ease);
   }
 
@@ -94,15 +56,11 @@ const num = String(index + 1).padStart(2, '0');
   }
 
   .cs__head {
-    padding-bottom: var(--s-5);
-    border-bottom: 1px solid var(--line);
-  }
-
-  .cs__id {
-    display: flex;
-    align-items: center;
-    gap: var(--s-3);
-    margin-bottom: var(--s-3);
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: baseline;
+    column-gap: var(--s-3);
+    margin-bottom: var(--s-5);
   }
 
   .cs__num {
@@ -110,8 +68,6 @@ const num = String(index + 1).padStart(2, '0');
     font-size: var(--step--2);
     font-weight: 600;
     color: var(--fg-4);
-    padding-right: var(--s-3);
-    border-right: 1px solid var(--line-2);
   }
 
   .cs__name {
@@ -119,127 +75,96 @@ const num = String(index + 1).padStart(2, '0');
     letter-spacing: -0.025em;
   }
 
-  .cs__thesis {
-    margin-top: var(--s-2);
-    font-size: var(--step-1);
-    line-height: 1.5;
-    color: var(--signal);
-    max-width: 52ch;
+  .cs__context {
+    grid-column: 2;
+    margin-top: var(--s-1);
+    color: var(--fg-3);
   }
 
-  .cs__body {
-    display: grid;
-    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
-    gap: clamp(1.5rem, 3vw, 2.5rem);
-    padding-top: var(--s-5);
+  .cs__story {
+    max-width: 62ch;
   }
 
-  .cs__block + .cs__block {
+  .cs__story p {
+    font-size: var(--step-0);
+    line-height: 1.7;
+    color: var(--fg-2);
+  }
+
+  .cs__story p + p {
+    margin-top: var(--s-3);
+  }
+
+  .cs__label {
     margin-top: var(--s-5);
-  }
-
-  .cs__block-title {
-    font-family: var(--font-mono);
-    font-size: 0.66rem;
-    font-weight: 600;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    color: var(--fg-4);
-    padding-bottom: var(--s-2);
     margin-bottom: var(--s-3);
-    border-bottom: 1px solid var(--line);
+    font-size: var(--step--1);
+    font-weight: 600;
+    color: var(--fg);
   }
 
-  .cs__text {
+  .cs__changed {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    max-width: 62ch;
+  }
+
+  .cs__changed li {
+    position: relative;
+    padding-left: var(--s-4);
     font-size: var(--step--1);
     line-height: 1.65;
     color: var(--fg-2);
   }
 
-  .decisions {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    counter-reset: decision;
+  .cs__changed li + li {
+    margin-top: var(--s-2);
   }
 
-  .decision {
-    counter-increment: decision;
-    position: relative;
-    padding-left: var(--s-6);
-  }
-
-  .decision + .decision {
-    margin-top: var(--s-4);
-    padding-top: var(--s-4);
-    border-top: 1px solid var(--line);
-  }
-
-  /* Decisions are numbered like clauses in a design doc. */
-  .decision::before {
-    content: counter(decision, decimal-leading-zero);
+  .cs__changed li::before {
+    content: '';
     position: absolute;
     left: 0;
-    top: 0.1em;
-    font-family: var(--font-mono);
-    font-size: 0.68rem;
-    font-weight: 600;
-    color: var(--signal);
-    opacity: 0.75;
+    top: 0.62em;
+    width: 0.4rem;
+    height: 1px;
+    background: var(--health);
   }
 
-  .decision + .decision::before {
-    top: calc(var(--s-4) + 0.1em);
+  /* The mistake gets its own space. Understated on purpose — it is not a brag. */
+  .cs__wrong {
+    margin-top: var(--s-5);
+    padding: var(--s-4);
+    max-width: 62ch;
+    background: var(--bg-2);
+    border-left: 2px solid var(--fg-4);
+    border-radius: 0 var(--r-sm) var(--r-sm) 0;
   }
 
-  .decision__title {
-    font-size: var(--step-0);
-    font-weight: 550;
-    line-height: 1.35;
-    color: var(--fg);
-  }
-
-  .decision__body {
-    margin-top: var(--s-2);
+  .cs__wrong p {
     font-size: var(--step--1);
-    line-height: 1.6;
+    line-height: 1.65;
     color: var(--fg-2);
   }
 
-  .outcomes {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 7rem), 1fr));
-    gap: 1px;
-    margin: 0;
-    background: var(--line);
-    border: 1px solid var(--line);
-    border-radius: var(--r-sm);
-    overflow: hidden;
-  }
-
-  .outcome {
-    background: var(--bg-2);
-    padding: var(--s-3);
-  }
-
-  .outcome__value {
+  .cs__wrong-label {
     font-family: var(--font-mono);
-    font-size: var(--step-0);
+    font-size: 0.66rem;
     font-weight: 600;
-    color: var(--health);
-    line-height: 1.2;
-  }
-
-  .outcome__label {
-    margin: var(--s-1) 0 0;
-    font-size: 0.72rem;
-    line-height: 1.35;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
     color: var(--fg-3);
+    margin-bottom: var(--s-2);
   }
 
-  @media (max-width: 58rem) {
-    .cs__body {
-      grid-template-columns: minmax(0, 1fr);
-    }
+  .cs__stack {
+    margin-top: var(--s-5);
+    padding-top: var(--s-4);
+    border-top: 1px solid var(--line);
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    line-height: 1.6;
+    color: var(--fg-3);
   }
 </style>

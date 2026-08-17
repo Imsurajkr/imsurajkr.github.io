@@ -9,30 +9,27 @@ import FormattedDate from '../components/FormattedDate.astro';
 import { site } from '../data/site';
 import {
   certifications,
+  certsNote,
   education,
   engagements,
   experience,
-  focusAreas,
   projects,
-  skillGroups,
+  skills,
+  skillsOpinion,
 } from '../data/resume';
+import { tools } from '../data/tools';
 
 const posts = (await getCollection('blog', ({ data }) => !data.draft))
   .sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf())
   .slice(0, 3);
 
-const certsByDomain = new Map<string, typeof certifications>();
-for (const cert of certifications) {
-  const list = certsByDomain.get(cert.domain) ?? [];
-  list.push(cert);
-  certsByDomain.set(cert.domain, list);
-}
+const toolCount = tools.length;
 
 const personJsonLd = {
   '@context': 'https://schema.org',
   '@type': 'Person',
   name: site.author.name,
-  jobTitle: 'Senior Platform & DevOps Engineer',
+  jobTitle: 'Platform Engineer',
   email: site.author.email,
   telephone: site.author.phone,
   url: site.url,
@@ -87,53 +84,16 @@ const websiteJsonLd = {
   <Hero />
   <ImpactReadout />
 
-  <!-- 01 — Focus areas -->
-  <section class="section" id="focus">
-    <div class="wrap railed">
-      <div class="rail" aria-hidden="true"></div>
-      <div>
-        <SectionHeader
-          index="01"
-          label="Engineering identity"
-          title="What I'm actually for"
-          summary="Four domains where I do my best work. Each is a capability I have built and operated in production, not a technology I have read about."
-        />
-
-        <div class="focus">
-          {
-            focusAreas.map((area) => (
-              <article class:list={['focus__card', 'row-hover', `tone-${area.tone}`]} data-reveal>
-                <header class="focus__head">
-                  <span class="focus__marker" aria-hidden="true" />
-                  <h3 class="focus__label">{area.label}</h3>
-                </header>
-
-                <p class="focus__thesis">{area.thesis}</p>
-                <p class="focus__body">{area.body}</p>
-
-                <ul class="chips focus__proof">
-                  {area.proof.map((item) => (
-                    <li class="chip">{item}</li>
-                  ))}
-                </ul>
-              </article>
-            ))
-          }
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- 02 — Selected work -->
+  <!-- 01 — Selected work -->
   <section class="section section--alt" id="work">
     <div class="wrap railed">
       <div class="rail" aria-hidden="true"></div>
       <div>
         <SectionHeader
-          index="02"
-          label="Selected work"
-          title="Engineering case studies"
-          summary="Problem, the decisions I made and why, the architecture, and what changed as a result. Written the way I would present them in a design review."
+          index="01"
+          label="Work"
+          title="Selected work"
+          summary="Three projects. Real details. No template."
         />
 
         <div class="work">
@@ -143,17 +103,12 @@ const websiteJsonLd = {
     </div>
   </section>
 
-  <!-- 03 — Experience -->
+  <!-- 02 — Experience -->
   <section class="section" id="experience">
     <div class="wrap railed">
       <div class="rail" aria-hidden="true"></div>
       <div>
-        <SectionHeader
-          index="03"
-          label="Career"
-          title="Where this was built"
-          summary="Seven years, three employers, and long-running client engagements across regulated banking, multi-cloud consulting and IoT platforms."
-        />
+        <SectionHeader index="02" label="Career" title="Experience" />
 
         <ol class="timeline">
           {
@@ -183,17 +138,9 @@ const websiteJsonLd = {
                     </p>
                   </header>
 
-                  {role.summary && <p class="tl__summary">{role.summary}</p>}
-
                   <ul class="points">
                     {role.highlights.map((point) => (
                       <li>{point}</li>
-                    ))}
-                  </ul>
-
-                  <ul class="chips tl__stack">
-                    {role.stack.map((tech) => (
-                      <li class="chip">{tech}</li>
                     ))}
                   </ul>
                 </article>
@@ -203,7 +150,7 @@ const websiteJsonLd = {
         </ol>
 
         <div class="engagements" data-reveal>
-          <h3 class="sub-title">Long-running client engagements</h3>
+          <h3 class="sub-title">Client engagements</h3>
           <div class="engagements__grid">
             {
               engagements.map((item) => (
@@ -212,12 +159,7 @@ const websiteJsonLd = {
                     <h4 class="eng__client">{item.client}</h4>
                     <span class="chip">{item.duration}</span>
                   </header>
-                  <p class="eng__role mono-label">{item.role}</p>
-                  <ul class="points">
-                    {item.highlights.map((point) => (
-                      <li>{point}</li>
-                    ))}
-                  </ul>
+                  <p class="muted eng__summary">{item.summary}</p>
                 </article>
               ))
             }
@@ -227,91 +169,67 @@ const websiteJsonLd = {
     </div>
   </section>
 
-  <!-- 04 — Technical depth (skills + certifications together) -->
+  <!-- 03 — Tech -->
   <section class="section section--alt" id="depth">
     <div class="wrap railed">
       <div class="rail" aria-hidden="true"></div>
       <div>
-        <SectionHeader
-          index="04"
-          label="Technical depth"
-          title="Toolkit, and the proof"
-          summary="Certifications sit beside the competency they verify — CKS next to security, AZ-400 next to delivery — because a credential only means something attached to the work."
-        />
+        <SectionHeader index="03" label="Tech" title="Tech I actually use" />
 
         <div class="depth">
           {
-            skillGroups.map((group) => {
-              const certs = certsByDomain.get(group.name) ?? [];
-              return (
-                <section class="depth__group" data-reveal>
-                  <header class="depth__head">
-                    <h3 class="depth__name">{group.name}</h3>
-                    {certs.length > 0 && (
-                      <ul class="depth__certs">
-                        {certs.map((cert) => (
-                          <li class="chip chip--signal" title={`${cert.name} — ${cert.issuer}`}>
-                            {cert.short}
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </header>
-
-                  <ul class="chips">
-                    {group.items.map((item) => (
-                      <li class="chip">{item}</li>
-                    ))}
-                  </ul>
-                </section>
-              );
-            })
+            skills.map((group) => (
+              <section class="depth__group" data-reveal>
+                <h3 class="depth__name">{group.label}</h3>
+                <ul class="chips">
+                  {group.items.map((item) => (
+                    <li class="chip">{item}</li>
+                  ))}
+                </ul>
+              </section>
+            ))
           }
         </div>
 
+        <p class="opinion" data-reveal>{skillsOpinion}</p>
+
         <div class="credentials" data-reveal>
           <div class="panel">
-            <h3 class="sub-title">All certifications</h3>
-            <ul class="cert-list">
+            <h3 class="sub-title">Tools I built</h3>
+            <p class="muted tools-copy">
+              {toolCount} browser-based utilities for DevOps tasks. No backend, no tracking, no AI.
+              Just working code — a visual subnet calculator, a PCAP analyzer, a JWT decoder and the
+              rest.
+            </p>
+            <a class="btn" href="/tools">Open the tools →</a>
+          </div>
+
+          <div class="panel">
+            <h3 class="sub-title">Certifications &amp; education</h3>
+            <p class="muted certs-note">{certsNote}</p>
+            <ul class="chips certs-chips">
               {
                 certifications.map((cert) => (
-                  <li class="cert">
-                    <span class="cert__short">{cert.short}</span>
-                    <div>
-                      <p class="cert__name">{cert.name}</p>
-                      <p class="cert__issuer dim">{cert.issuer}</p>
-                    </div>
+                  <li class="chip" title={`${cert.name} — ${cert.issuer}`}>
+                    {cert.short}
                   </li>
                 ))
               }
             </ul>
-          </div>
-
-          <div class="panel">
-            <h3 class="sub-title">Education</h3>
             {
               education.map((item) => (
-                <div class="edu">
-                  <p class="edu__degree">{item.degree}</p>
-                  <p class="muted">{item.school}</p>
-                  <span class="chip edu__year">{item.year}</span>
-                </div>
+                <p class="muted edu-line">
+                  {item.degree} — {item.school}, {item.year}.
+                </p>
               ))
             }
-
-            <h3 class="sub-title tools-title">Built for other engineers</h3>
-            <p class="muted tools-copy">
-              Six DevOps utilities that run entirely in the browser — a visual subnet calculator,
-              JWT decoder, YAML/JSON converter and more. Working software beats a skills bar chart.
-            </p>
-            <a class="btn" href="/tools">Open the tools →</a>
           </div>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- 05 — Writing -->
+  <!-- 04 — Writing -->
   {
     posts.length > 0 && (
       <section class="section" id="writing">
@@ -319,10 +237,10 @@ const websiteJsonLd = {
           <div class="rail" aria-hidden="true" />
           <div>
             <SectionHeader
-              index="05"
+              index="04"
               label="Writing"
-              title="Notes from the terminal"
-              summary="Hands-on write-ups on networking, containers and security tooling."
+              title="Things I wrote down"
+              summary="Mostly so I would stop looking them up again."
             />
 
             <ul class="writing">
@@ -353,18 +271,18 @@ const websiteJsonLd = {
     )
   }
 
-  <!-- 06 — Contact -->
+  <!-- 05 — Contact -->
   <section class="section section--alt" id="contact">
     <div class="wrap railed">
       <div class="rail" aria-hidden="true"></div>
       <div>
-        <SectionHeader index="06" label="Contact" title="Let's talk platforms" />
+        <SectionHeader index="05" label="Contact" title="Contact" />
 
         <div class="contact" data-reveal>
           <div class="contact__copy">
             <p class="lead prose">
-              Open to senior platform, DevOps and SRE conversations — especially where Kubernetes,
-              multi-cloud IaC and developer self-service meet regulated environments.
+              I'm currently open to senior platform and SRE roles. If you're building infrastructure
+              that other engineers ship on, I want to talk.
             </p>
             <div class="contact__actions">
               <a class="btn btn--primary" href={site.social.email}>Email me</a>
@@ -406,8 +324,10 @@ const websiteJsonLd = {
 </BaseLayout>
 
 <style>
+  /* Translucent so the particle field reads through the banded sections.
+     Cards inside stay fully opaque — body text needs the contrast. */
   .section--alt {
-    background: var(--bg-1);
+    background: color-mix(in srgb, var(--bg-1) 86%, transparent);
     border-block: 1px solid var(--line);
   }
 
@@ -449,76 +369,6 @@ const websiteJsonLd = {
     background: var(--line-3);
   }
 
-  /* ---------------------------------------------------------- focus --- */
-
-  .focus {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 19rem), 1fr));
-    gap: var(--s-3);
-  }
-
-  .focus__card {
-    padding: var(--s-5);
-    background: var(--bg-1);
-    border: 1px solid var(--line);
-    border-radius: var(--r);
-    display: flex;
-    flex-direction: column;
-  }
-
-  .focus__head {
-    display: flex;
-    align-items: center;
-    gap: var(--s-2);
-  }
-
-  .focus__marker {
-    width: 6px;
-    height: 6px;
-    flex: none;
-    background: var(--line-3);
-    transform: rotate(45deg);
-  }
-
-  .tone-signal .focus__marker {
-    background: var(--signal);
-  }
-  .tone-guard .focus__marker {
-    background: var(--guard);
-  }
-  .tone-health .focus__marker {
-    background: var(--health);
-  }
-
-  .focus__label {
-    font-family: var(--font-mono);
-    font-size: 0.7rem;
-    font-weight: 600;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--fg-3);
-  }
-
-  .focus__thesis {
-    margin-top: var(--s-3);
-    font-size: var(--step-1);
-    font-weight: 550;
-    line-height: 1.35;
-    letter-spacing: -0.015em;
-    color: var(--fg);
-  }
-
-  .focus__body {
-    margin-top: var(--s-3);
-    font-size: var(--step--1);
-    line-height: 1.6;
-    color: var(--fg-2);
-  }
-
-  .focus__proof {
-    margin-top: auto;
-    padding-top: var(--s-4);
-  }
 
   /* -------------------------------------------------------- timeline --- */
 
@@ -613,18 +463,6 @@ const websiteJsonLd = {
     gap: 0.3rem;
   }
 
-  .tl__summary {
-    font-size: var(--step--1);
-    line-height: 1.6;
-    color: var(--fg-2);
-    margin-bottom: var(--s-4);
-    max-width: 62ch;
-  }
-
-  .tl__stack {
-    margin-top: var(--s-4);
-  }
-
   .engagements {
     margin-top: var(--s-6);
   }
@@ -646,8 +484,10 @@ const websiteJsonLd = {
     font-size: var(--step-1);
   }
 
-  .eng__role {
-    margin: 0.2rem 0 var(--s-4);
+  .eng__summary {
+    margin-top: var(--s-2);
+    font-size: var(--step--1);
+    line-height: 1.6;
   }
 
   /* ----------------------------------------------------------- depth --- */
@@ -658,27 +498,23 @@ const websiteJsonLd = {
     gap: var(--s-5) var(--s-6);
   }
 
-  .depth__head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--s-3);
+  .depth__name {
+    font-size: var(--step--1);
+    font-weight: 550;
     padding-bottom: var(--s-2);
     margin-bottom: var(--s-3);
     border-bottom: 1px solid var(--line);
   }
 
-  .depth__name {
-    font-size: var(--step--1);
-    font-weight: 550;
-  }
-
-  .depth__certs {
-    display: flex;
-    gap: 0.25rem;
-    list-style: none;
-    margin: 0;
-    padding: 0;
+  /* One line, set apart. It is the only opinion in the section. */
+  .opinion {
+    margin-top: var(--s-6);
+    padding-left: var(--s-4);
+    border-left: 2px solid var(--signal);
+    font-size: var(--step-0);
+    line-height: 1.6;
+    color: var(--fg-2);
+    max-width: var(--maxw-prose);
   }
 
   .credentials {
@@ -688,62 +524,22 @@ const websiteJsonLd = {
     margin-top: var(--s-6);
   }
 
-  .cert-list {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-  }
-
-  .cert {
-    display: flex;
-    align-items: center;
-    gap: var(--s-3);
-    padding: var(--s-3) 0;
-    border-bottom: 1px solid var(--line);
-  }
-
-  .cert:last-child {
-    border-bottom: 0;
-  }
-
-  .cert__short {
-    flex: none;
-    min-width: 3.5rem;
-    text-align: center;
-    padding: 0.25rem 0.4rem;
-    font-family: var(--font-mono);
-    font-size: 0.68rem;
-    font-weight: 600;
-    color: var(--signal);
-    background: var(--signal-soft);
-    border: 1px solid color-mix(in srgb, var(--signal) 30%, transparent);
-    border-radius: var(--r-sm);
-  }
-
-  .cert__name {
+  .certs-note {
     font-size: var(--step--1);
-    font-weight: 500;
-    line-height: 1.3;
+    line-height: 1.6;
+    margin-top: var(--s-3);
   }
 
-  .cert__issuer {
-    font-size: 0.72rem;
-    margin-top: 0.1rem;
+  .certs-chips {
+    margin-top: var(--s-4);
   }
 
-  .edu__degree {
-    font-size: var(--step-0);
-    font-weight: 550;
-  }
-
-  .edu__year {
-    margin-top: var(--s-2);
-  }
-
-  .tools-title {
-    margin-top: var(--s-6);
+  .edu-line {
+    margin-top: var(--s-4);
+    padding-top: var(--s-4);
+    border-top: 1px solid var(--line);
+    font-size: var(--step--1);
+    line-height: 1.6;
   }
 
   .tools-copy {

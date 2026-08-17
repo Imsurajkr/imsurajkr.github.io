@@ -2,11 +2,11 @@
 import BaseLayout from '../layouts/BaseLayout.astro';
 import PageHeader from '../components/PageHeader.astro';
 import { site } from '../data/site';
-import { certifications, profile } from '../data/resume';
+import { certifications, certsNote, profile } from '../data/resume';
 
 const title = 'About';
 const description =
-  'About Suraj Kumar — Senior Platform & DevOps Engineer in Gurugram, India. 7+ years across AWS, GCP, Azure and Kubernetes, building self-service platforms, IaC and DevSecOps guardrails.';
+  'About Suraj Kumar — Platform Engineer in Gurugram, India. Seven years running Kubernetes, Terraform and CI/CD across AWS, Azure and GCP, currently for regulated banking workloads at Kotak Mahindra Bank.';
 
 const jsonLd = {
   '@context': 'https://schema.org',
@@ -23,23 +23,10 @@ const jsonLd = {
   },
 };
 
-const principles = [
-  {
-    title: 'Platforms, not ticket queues',
-    body: 'The best platform team is the one product engineers rarely need to talk to. I build paved roads — golden Terraform modules, self-service APIs, sane defaults — so teams ship without waiting on me.',
-  },
-  {
-    title: 'Security is a default, not a gate',
-    body: 'CKS-certified and coming from a regulated bank: guardrails belong in the pipeline and the cluster, not in a review meeting at the end. Visible CVE posture beats a quarterly PDF scan report.',
-  },
-  {
-    title: 'Boring infrastructure is a feature',
-    body: 'Zero-downtime Blue-Green releases, tested backups, alerting that fires before customers notice. Reliability work is unglamorous and it is the whole job.',
-  },
-  {
-    title: 'Cost is an engineering metric',
-    body: 'FinOps is not a spreadsheet exercise. Right-sizing, lifecycle policies and killing idle resources are design decisions that belong next to latency and availability.',
-  },
+const caresAbout = [
+  'Systems that fail gracefully — not systems that never fail.',
+  'Documentation that actually gets read — not Confluence graveyards.',
+  'On-call rotations that don’t burn people out.',
 ];
 
 const timeline = [
@@ -47,63 +34,54 @@ const timeline = [
   { year: '2020', text: 'First DevOps role at RoboMQ — Docker, GCP and AWS EKS.' },
   {
     year: '2020–2024',
-    text: 'Lead DevOps Engineer at FiftyFive Technologies. Multi-cloud platforms, Terraform, Kubeflow, and leading a DevOps team across concurrent client engagements.',
+    text: 'Lead DevOps Engineer at FiftyFive Technologies. Multi-cloud platforms, Terraform, Kubeflow, and leading a team of 4 across concurrent client engagements.',
   },
   {
     year: '2024–now',
-    text: 'DevOps Engineer 2 at Kotak Mahindra Bank — Kong, Istio, Blue-Green delivery and CVE visibility for regulated banking workloads.',
+    text: 'DevOps Engineer 2 at Kotak Mahindra Bank — Kong, Istio, blue-green delivery and CVE visibility for regulated banking workloads.',
   },
 ];
 ---
 
 <BaseLayout title={title} description={description} jsonLd={jsonLd}>
   <PageHeader
-    eyebrow="About us"
+    eyebrow="About"
     title="About Suraj Kumar"
-    lead="Senior Platform & DevOps Engineer based in Gurugram, India — building cloud platforms that engineering teams actually enjoy using."
+    lead="Platform Engineer in Gurugram, India. Seven years in. Still learning."
   />
 
   <section class="section">
     <div class="wrap about">
       <div class="about__main">
         <div class="content prose">
-          <p>{profile.summary}</p>
           <p>
-            In practice that means I spend my time on three things: making infrastructure
-            reproducible, making delivery safe, and making both of those someone else's
-            self-service instead of my inbox. I have run production workloads on <strong>AWS</strong>,
-            <strong>GCP</strong> and <strong>Azure</strong> — including EKS, GKE and AKS clusters —
-            wrapped in Terraform, fronted by Kong and Istio, and delivered through pipelines in
-            Azure DevOps, Cloud Build, CodePipeline and Jenkins.
+            I started as a MEAN stack intern at <strong>RoboMQ</strong> in 2020. The first real
+            production system I built was a log management tool with RabbitMQ. I didn't know what
+            backpressure was until the queue filled up and crashed. That's how you learn.
           </p>
           <p>
-            Most recently at <strong>Kotak Mahindra Bank</strong>, that work happens under real
-            regulatory pressure: zero-downtime releases on customer-facing banking systems, live
-            CVE visibility across the container estate, and automated database backups into S3 that
-            satisfy both compliance retention and disaster recovery. Before that, as Lead DevOps
-            Engineer at <strong>FiftyFive Technologies</strong>, I led a team delivering multi-cloud
-            platforms for several clients at once, and wrote the FastAPI service that let their
-            developers manage Kubernetes resources themselves.
+            Since then I've been a DevOps engineer, a lead, and the guy everyone pings when kubectl
+            starts acting weird. I've worked across <strong>AWS</strong>, <strong>Azure</strong> and
+            <strong>GCP</strong> — sometimes all three in the same week. I don't think multi-cloud is
+            a good idea for most companies, but if your client insists on it, you make it work.
           </p>
           <p>
-            I hold six certifications — including <strong>CKA</strong>, <strong>CKS</strong> and
-            <strong>CKAD</strong> — and I write about the things I break and fix on the
-            <a href="/blog">blog</a>. The <a href="/tools">tools section</a> is the practical side of
-            that: small, fast, browser-only utilities I got tired of looking up.
+            These days I'm at <strong>Kotak Mahindra Bank</strong>, running Kong and Istio for
+            banking workloads, where a bad release is an audit finding as well as an outage. I write
+            about the things I break and fix on the <a href="/blog">blog</a>, and the
+            <a href="/tools">tools section</a> is the practical side of that: small, browser-only
+            utilities I got tired of looking up.
+          </p>
+          <p>
+            I'm not a "thought leader." I don't write threads on X. I fix broken deployments and make
+            sure the next person who touches my code doesn't hate me.
           </p>
         </div>
 
-        <h2 class="about__h2">How I work</h2>
-        <div class="principles">
-          {
-            principles.map((p) => (
-              <article class="panel">
-                <h3 class="principle__title">{p.title}</h3>
-                <p class="muted principle__body">{p.body}</p>
-              </article>
-            ))
-          }
-        </div>
+        <h2 class="about__h2">I care about</h2>
+        <ul class="cares">
+          {caresAbout.map((item) => <li>{item}</li>)}
+        </ul>
 
         <h2 class="about__h2">The short version</h2>
         <ol class="mini-timeline">
@@ -124,20 +102,19 @@ const timeline = [
           <dl class="facts">
             <div><dt>Role</dt><dd>{profile.headline}</dd></div>
             <div><dt>Based in</dt><dd>{site.author.location}</dd></div>
-            <div><dt>Experience</dt><dd>7+ years</dd></div>
-            <div><dt>Clouds</dt><dd>AWS · GCP · Azure · OCI</dd></div>
-            <div><dt>Focus</dt><dd>Kubernetes, IaC, DevSecOps, FinOps</dd></div>
+            <div><dt>Experience</dt><dd>7 years</dd></div>
+            <div><dt>Every day</dt><dd>Kubernetes · Terraform · Python · AWS</dd></div>
           </dl>
         </div>
 
         <div class="panel side-card">
           <h2 class="side-card__title">Certifications</h2>
-          <ul class="cert-list">
+          <p class="muted side-card__body">{certsNote}</p>
+          <ul class="chips side-card__certs">
             {
               certifications.map((c) => (
-                <li>
-                  <span class="chip chip--signal">{c.short}</span>
-                  <span class="muted">{c.name}</span>
+                <li class="chip" title={`${c.name} — ${c.issuer}`}>
+                  {c.short}
                 </li>
               ))
             }
@@ -145,9 +122,10 @@ const timeline = [
         </div>
 
         <div class="panel side-card">
-          <h2 class="side-card__title">Work with me</h2>
+          <h2 class="side-card__title">Hire me</h2>
           <p class="muted side-card__body">
-            Open to senior platform, DevOps and SRE roles and consulting engagements.
+            I'm currently open to senior platform and SRE roles. If you're building infrastructure
+            that other engineers ship on, I want to talk.
           </p>
           <a class="btn btn--primary side-card__cta" href="/contact">Get in touch</a>
         </div>
@@ -169,20 +147,33 @@ const timeline = [
     margin: 3rem 0 1.25rem;
   }
 
-  .principles {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 17rem), 1fr));
-    gap: 1rem;
+  .cares {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    max-width: var(--maxw-prose);
   }
 
-  .principle__title {
-    font-size: 1rem;
-    color: var(--signal);
+  .cares li {
+    position: relative;
+    padding-left: 1.1rem;
+    font-size: 0.98rem;
+    line-height: 1.65;
+    color: var(--fg-2);
   }
 
-  .principle__body {
-    font-size: 0.92rem;
-    margin-top: 0.5rem;
+  .cares li + li {
+    margin-top: 0.55rem;
+  }
+
+  .cares li::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0.68em;
+    width: 0.45rem;
+    height: 1px;
+    background: var(--signal);
   }
 
   .mini-timeline {
@@ -256,21 +247,8 @@ const timeline = [
     margin: 0;
   }
 
-  .cert-list {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 0.6rem;
-    font-size: 0.84rem;
-  }
-
-  .cert-list li {
-    display: grid;
-    grid-template-columns: 3.6rem 1fr;
-    gap: 0.6rem;
-    align-items: center;
+  .side-card__certs {
+    margin-top: 0.9rem;
   }
 
   .side-card__body {

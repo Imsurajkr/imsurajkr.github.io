@@ -19,7 +19,7 @@ export const GET: APIRoute = async () => {
 
 > ${site.description}
 
-Personal site of ${site.author.name}, a Senior Platform & DevOps Engineer based in
+Personal site of ${site.author.name}, a Platform Engineer based in
 ${site.author.location}. The site hosts free browser-only DevOps tools, guided
 troubleshooting playbooks, and write-ups on networking, Linux, TLS and Kubernetes.
 

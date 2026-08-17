@@ -1,39 +1,32 @@
 ---
 import { site } from '../data/site';
 import { profile } from '../data/resume';
-import TerminalHero from './TerminalHero.astro';
 ---
 
 <section class="hero">
-  <!-- Ambient mesh: two low-opacity glows over the blueprint grid. -->
+  <!-- Two low-opacity glows for colour depth. The texture now comes from the
+       page-level particle field behind this section. -->
   <div class="hero__bg" aria-hidden="true">
     <span class="glow glow--a"></span>
     <span class="glow glow--b"></span>
-    <span class="hero__grid"></span>
   </div>
 
   <div class="wrap hero__inner">
     <div class="hero__copy">
-      <p class="hero__status" data-reveal>
-        <span class="status-dot" aria-hidden="true"></span>
-        <span class="mono-label">Open to senior platform &amp; SRE roles</span>
+      <h1 class="hero__name" data-reveal>Suraj Kumar</h1>
+
+      <p class="hero__role" data-reveal style="--reveal-delay: 100ms">
+        {profile.headline} at Kotak Mahindra Bank
       </p>
 
-      <h1 class="hero__name" data-reveal style="--reveal-delay: 50ms">Suraj Kumar</h1>
-
-      <p class="hero__role" data-reveal style="--reveal-delay: 100ms">{profile.headline}</p>
-
       <p class="hero__pitch" data-reveal style="--reveal-delay: 150ms">
-        I build the infrastructure other engineers ship on — hardened Kubernetes platforms,
-        multi-cloud Terraform, and delivery pipelines that hold up under audit. Currently keeping
-        banking workloads online at <strong>Kotak Mahindra Bank</strong>.
+        There is no compression algorithm for experience. You can’t learn certain lessons without going through the curve
       </p>
 
       <ul class="hero__specs" data-reveal style="--reveal-delay: 200ms">
-        <li><span class="dim">Clouds</span> AWS · GCP · Azure</li>
-        <li><span class="dim">Orchestration</span> EKS · AKS · GKE · Istio</li>
-        <li><span class="dim">IaC</span> Terraform · Puppet</li>
-        <li><span class="dim">Languages</span> Python · Bash · Go</li>
+        <li><span class="dim">Every day</span> Kubernetes · Terraform · Python · AWS · Bash</li>
+        <li><span class="dim">Regularly</span> Istio · Kong · FastAPI · Azure DevOps</li>
+        <li><span class="dim">Learning</span> Go, slowly</li>
       </ul>
 
       <div class="hero__actions no-print" data-reveal style="--reveal-delay: 250ms">
@@ -41,10 +34,6 @@ import TerminalHero from './TerminalHero.astro';
         <a class="btn" href="/tools">Try my DevOps tools</a>
         <a class="btn" href={site.social.email}>Get in touch</a>
       </div>
-    </div>
-
-    <div class="hero__figure" data-reveal style="--reveal-delay: 180ms">
-      <TerminalHero />
     </div>
   </div>
 </section>
@@ -86,16 +75,6 @@ import TerminalHero from './TerminalHero.astro';
     background: color-mix(in srgb, var(--signal) 26%, transparent);
   }
 
-  .hero__grid {
-    position: absolute;
-    inset: 0;
-    background-image: linear-gradient(var(--grid) 1px, transparent 1px),
-      linear-gradient(90deg, var(--grid) 1px, transparent 1px);
-    background-size: 52px 52px;
-    mask-image: radial-gradient(ellipse 80% 70% at 40% 10%, #000 20%, transparent 78%);
-    -webkit-mask-image: radial-gradient(ellipse 80% 70% at 40% 10%, #000 20%, transparent 78%);
-  }
-
   /* Light theme: the glows would wash the page out, so pull them right back. */
   :global(html[data-theme='light']) .glow {
     opacity: 0.32;
@@ -107,31 +86,20 @@ import TerminalHero from './TerminalHero.astro';
     }
   }
 
+  /* Single column since the figure was removed. The copy is held to a readable
+     measure rather than spanning the full container width. */
   .hero__inner {
     position: relative;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
-    gap: clamp(2rem, 4vw, 3.5rem);
-    align-items: center;
   }
 
-  .hero__status {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--s-2);
-    padding: 0.3rem 0.7rem 0.3rem 0.55rem;
-    border: 1px solid var(--line);
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--bg-1) 70%, transparent);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+  .hero__copy {
+    max-width: 54rem;
   }
 
   .hero__name {
     font-size: var(--step-5);
     font-weight: 600;
     letter-spacing: -0.035em;
-    margin-top: var(--s-4);
   }
 
   .hero__role {
@@ -189,10 +157,4 @@ import TerminalHero from './TerminalHero.astro';
     margin-top: var(--s-5);
   }
 
-  @media (max-width: 64rem) {
-    .hero__inner {
-      grid-template-columns: minmax(0, 1fr);
-      gap: var(--s-6);
-    }
-  }
 </style>

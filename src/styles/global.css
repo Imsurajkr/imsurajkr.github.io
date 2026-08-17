@@ -168,10 +168,14 @@
   margin: 0;
 }
 
+/* The page colour lives here, not on <body>, so the fixed particle field can
+   sit at z-index -1 behind the content. A z-index:-1 child of an opaque <body>
+   paints behind that background and is never visible. */
 html {
   -webkit-text-size-adjust: 100%;
   scroll-behavior: smooth;
   scroll-padding-top: 6rem;
+  background: var(--bg);
 }
 
 body {
@@ -179,7 +183,7 @@ body {
   font-size: var(--step-0);
   line-height: 1.6;
   color: var(--fg);
-  background: var(--bg);
+  background: transparent;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   font-feature-settings: 'kern' 1;
@@ -682,6 +686,14 @@ html[data-theme='light'] .astro-code span {
 
 @media print {
   .no-print {
+    display: none !important;
+  }
+  /* The page colour moved to <html> for the particle field's stacking, so the
+     print override has to reset it there too — and the field itself must go. */
+  html {
+    background: #fff;
+  }
+  #particles-js {
     display: none !important;
   }
   body {

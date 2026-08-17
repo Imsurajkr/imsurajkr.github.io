@@ -329,7 +329,7 @@
       cmd: 'whoami',
       out: [
         'suraj_kumar',
-        '<span class="muted">senior platform &amp; devops engineer · gurugram, in</span>',
+        '<span class="muted">platform engineer · gurugram, in</span>',
       ],
       wait: 700,
     },
@@ -371,11 +371,11 @@
       wait: 800,
     },
     {
-      cmd: 'grep -ri "suraj" ./team/',
+      cmd: 'istioctl proxy-status | grep -v SYNCED',
       out: [
-        './team/platform/OWNERS: <span class="hit">suraj</span>_kumar',
-        './team/oncall/rota.yaml: primary: <span class="hit">suraj</span>_kumar',
-        './team/adr/0042-service-mesh.md: author: <span class="hit">suraj</span>_kumar',
+        '<span class="muted">NAME                          CDS      LDS      EDS      RDS</span>',
+        'payments-7c9f4d.prod          <span class="warn">STALE</span>    SYNCED   SYNCED   SYNCED',
+        '<span class="muted"># one sidecar behind. this is the whole job.</span>',
       ],
       wait: 1600,
     },

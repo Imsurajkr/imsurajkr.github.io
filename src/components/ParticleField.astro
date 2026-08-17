@@ -1,0 +1,283 @@
+---
+/**
+ * The page-level interactive backdrop: a drifting particle network that links
+ * nearby nodes and reacts to the pointer.
+ *
+ * Written against a canvas rather than pulling in particles.js — that library
+ * has not shipped since 2016, weighs ~26KB, and has no concept of our theme
+ * tokens or of prefers-reduced-motion. This reads its colours from the same
+ * custom properties as everything else, so it re-tints when the theme flips.
+ *
+ * Stacking: this sits at z-index -1, which only works because the base page
+ * colour lives on <html> and <body> is transparent. A z-index:-1 child of an
+ * opaque <body> paints *behind* that background and is never seen.
+ */
+---
+
+<canvas id="particles-js" aria-hidden="true"></canvas>
+
+<style>
+  #particles-js {
+    position: fixed;
+    z-index: -1;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    /* Fades in once the first frame is painted, so there is no hard pop. */
+    opacity: 0;
+    transition: opacity 1.2s var(--ease);
+  }
+
+  #particles-js.is-ready {
+    opacity: 1;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    #particles-js {
+      transition: none;
+    }
+  }
+</style>
+
+<script>
+  const canvasEl = document.getElementById('particles-js') as HTMLCanvasElement | null;
+  const context = canvasEl?.getContext('2d');
+
+  if (canvasEl && context) {
+    // Rebound as consts so the non-null types survive into the functions below.
+    const canvas = canvasEl;
+    const ctx = context;
+
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+    /** Link lines fade out across this distance, in CSS pixels. */
+    const LINK_DIST = 130;
+    /** How close the pointer has to be to pull on a node. */
+    const POINTER_DIST = 160;
+
+    interface Node {
+      x: number;
+      y: number;
+      vx: number;
+      vy: number;
+      r: number;
+    }
+
+    let nodes: Node[] = [];
+    let width = 0;
+    let height = 0;
+    let dpr = 1;
+    let dotColor = 'rgba(148, 178, 208, 0.5)';
+    let linkRGB = '148, 178, 208';
+    let frame = 0;
+
+    const pointer = { x: -9999, y: -9999, active: false };
+
+    /**
+     * Pull the live palette off the document element. Called again whenever the
+     * theme changes so the field never disagrees with the rest of the page.
+     */
+    function readTheme() {
+      const styles = getComputedStyle(document.documentElement);
+      const signal = styles.getPropertyValue('--signal').trim() || '#5ea9f0';
+      const rgb = toRGB(signal);
+      linkRGB = rgb;
+      dotColor = `rgba(${rgb}, 0.55)`;
+    }
+
+    /** Accepts #rgb / #rrggbb / rgb(...) and returns "r, g, b". */
+    function toRGB(color: string): string {
+      if (color.startsWith('rgb')) {
+        const parts = color.match(/[\d.]+/g);
+        if (parts && parts.length >= 3) return parts.slice(0, 3).join(', ');
+      }
+
+      let hex = color.replace('#', '');
+      if (hex.length === 3) hex = hex.replace(/./g, (c) => c + c);
+      if (hex.length !== 6) return '148, 178, 208';
+
+      const int = parseInt(hex, 16);
+      return `${(int >> 16) & 255}, ${(int >> 8) & 255}, ${int & 255}`;
+    }
+
+    /** Density scales with area, but is capped so phones stay smooth. */
+    function targetCount() {
+      const area = width * height;
+      return Math.max(24, Math.min(90, Math.round(area / 20000)));
+    }
+
+    function resize() {
+      width = window.innerWidth;
+      height = window.innerHeight;
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+      canvas.width = Math.round(width * dpr);
+      canvas.height = Math.round(height * dpr);
+      canvas.style.width = `${width}px`;
+      canvas.style.height = `${height}px`;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      seed();
+    }
+
+    function seed() {
+      const count = targetCount();
+
+      // Keep existing nodes on resize so the field does not visibly restart.
+      if (nodes.length > count) nodes.length = count;
+
+      while (nodes.length < count) {
+        nodes.push({
+          x: Math.random() * width,
+          y: Math.random() * height,
+          vx: (Math.random() - 0.5) * 0.22,
+          vy: (Math.random() - 0.5) * 0.22,
+          r: Math.random() * 1.4 + 0.7,
+        });
+      }
+
+      // Anything seeded before a shrink may now sit off-screen.
+      for (const n of nodes) {
+        if (n.x > width) n.x = Math.random() * width;
+        if (n.y > height) n.y = Math.random() * height;
+      }
+    }
+
+    function step() {
+      ctx.clearRect(0, 0, width, height);
+
+      for (const n of nodes) {
+        n.x += n.vx;
+        n.y += n.vy;
+
+        // Wrap rather than bounce: no build-up of nodes along the edges.
+        if (n.x < -20) n.x = width + 20;
+        else if (n.x > width + 20) n.x = -20;
+        if (n.y < -20) n.y = height + 20;
+        else if (n.y > height + 20) n.y = -20;
+
+        // The pointer nudges nearby nodes aside, and they drift back on their own.
+        if (pointer.active) {
+          const dx = n.x - pointer.x;
+          const dy = n.y - pointer.y;
+          const dist = Math.hypot(dx, dy);
+          if (dist < POINTER_DIST && dist > 0.5) {
+            const push = ((POINTER_DIST - dist) / POINTER_DIST) * 0.6;
+            n.x += (dx / dist) * push;
+            n.y += (dy / dist) * push;
+          }
+        }
+      }
+
+      // Links first, so the dots sit on top of the web.
+      ctx.lineWidth = 1;
+      for (let i = 0; i < nodes.length; i++) {
+        for (let j = i + 1; j < nodes.length; j++) {
+          const a = nodes[i];
+          const b = nodes[j];
+          const dx = a.x - b.x;
+          const dy = a.y - b.y;
+          const distSq = dx * dx + dy * dy;
+          if (distSq > LINK_DIST * LINK_DIST) continue;
+
+          const alpha = (1 - Math.sqrt(distSq) / LINK_DIST) * 0.32;
+          ctx.strokeStyle = `rgba(${linkRGB}, ${alpha.toFixed(3)})`;
+          ctx.beginPath();
+          ctx.moveTo(a.x, a.y);
+          ctx.lineTo(b.x, b.y);
+          ctx.stroke();
+        }
+      }
+
+      ctx.fillStyle = dotColor;
+      for (const n of nodes) {
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    function loop() {
+      // No animation work behind a hidden tab.
+      if (!document.hidden) step();
+      frame = requestAnimationFrame(loop);
+    }
+
+    function start() {
+      if (frame) return;
+      frame = requestAnimationFrame(loop);
+    }
+
+    function stop() {
+      if (!frame) return;
+      cancelAnimationFrame(frame);
+      frame = 0;
+    }
+
+    /**
+     * Reduced motion still gets the field — it is part of the page's identity —
+     * but painted once and left still, with no drift and no pointer reaction.
+     */
+    function applyMotionPreference() {
+      if (reduced.matches) {
+        stop();
+        for (const n of nodes) {
+          n.vx = 0;
+          n.vy = 0;
+        }
+        pointer.active = false;
+        step();
+      } else {
+        start();
+      }
+    }
+
+    let resizeTimer = 0;
+    window.addEventListener('resize', () => {
+      window.clearTimeout(resizeTimer);
+      resizeTimer = window.setTimeout(() => {
+        resize();
+        if (reduced.matches) step();
+      }, 150);
+    });
+
+    window.addEventListener(
+      'pointermove',
+      (event) => {
+        if (reduced.matches || event.pointerType === 'touch') return;
+        pointer.x = event.clientX;
+        pointer.y = event.clientY;
+        pointer.active = true;
+      },
+      { passive: true }
+    );
+
+    window.addEventListener('pointerleave', () => {
+      pointer.active = false;
+    });
+
+    reduced.addEventListener('change', applyMotionPreference);
+
+    /* Re-tint on a theme change. Under reduced motion the loop is stopped, so
+       the new palette needs an explicit repaint or the field keeps the old one. */
+    function retint() {
+      readTheme();
+      if (reduced.matches) step();
+    }
+
+    // The theme toggle rewrites data-theme on <html>.
+    new MutationObserver(retint).observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['data-theme'],
+    });
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', retint);
+
+    readTheme();
+    resize();
+    applyMotionPreference();
+    step();
+    canvas.classList.add('is-ready');
+  }
+</script>
